@@ -27,7 +27,8 @@ body {
     height: 11in;
     background: white;
     margin: 20px auto;
-    padding: 0.75in;
+    /* Corrected bottom padding to be exactly 0.123in from the bottom */
+    padding: 0.75in 0.536in 0.123in 0.451in; /* top right bottom left */
     box-sizing: border-box;
     position: relative;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
@@ -157,9 +158,9 @@ a {
 /* Footer */
 .footer {
     position: absolute;
-    bottom: 0.75in;
-    left: 0.75in;
-    right: 0.75in;
+    bottom: 0.123in; /* Match the bottom padding */
+    left: 0.451in; /* Match the left padding */
+    right: 0.536in; /* Match the right padding */
     display: flex;
     justify-content: space-between;
     font-size: 12px;
@@ -188,7 +189,7 @@ a {
         width: 8.5in;
         height: 11in;
         margin: 0;
-        padding: 0.75in;
+        padding: 0.75in 0.536in 0.123in 0.451in; /* Match the main padding */
         box-shadow: none;
         page-break-after: always;
     }
