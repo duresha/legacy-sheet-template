@@ -76,7 +76,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 28px; /* Base size that will grow */
+    min-width: 18px; /* Base size that will grow */
     height: 28px;
     background: transparent; /* No fill color */
     color: #a85733; /* Text color as specified */
@@ -84,7 +84,7 @@ body {
     border: 6px solid #a85733; /* Border/outline as specified */
     border-radius: 18px; /* Corner rounding as specified */
     font-family: 'Nunito Sans', sans-serif; /* Better alternative to Canva Sans */
-    font-size: 11px; /* Font size as specified */
+    font-size: 14px; /* Font size as specified */
     font-weight: bold;
     margin-right: 12px;
     flex-shrink: 0;
