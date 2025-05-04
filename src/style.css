@@ -2,6 +2,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap');
 
+/* Custom Font Face for Roca Two Bold */
+@font-face {
+    font-family: 'Roca Two Bold';
+    src: url('/fonts/FontsFree-Net-Roca-Two-Bold.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+
 /* Page setup - US Letter size */
 body {
     margin: 0;
@@ -28,18 +36,18 @@ body {
 
 /* Typography */
 .generation-title {
-    font-family: 'Merriweather', serif;
-    color: #8B7D39;
-    font-size: 24px;
+    font-family: 'Roca Two Bold', sans-serif;
+    color: #656137;
+    font-size: 25px;
     text-align: center;
     margin-bottom: 15px;
-    font-weight: 700;
+    font-weight: bold;
 }
 
 .horizontal-rule {
     border: none;
     height: 1px;
-    background-color: #8B7D39;
+    background-color: #656137; /* Updated to match the new heading color */
     width: 80%;
     margin: 0 auto 30px;
 }
