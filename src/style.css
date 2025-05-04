@@ -87,6 +87,7 @@ body {
     font-size: 14px; /* Font size as specified */
     font-weight: bold;
     margin-right: 12px;
+    margin-top: 3px; /* Align with the top of the entry */
     flex-shrink: 0;
     box-sizing: content-box; /* Ensures border doesn't affect dimensions */
     padding: 0 5px; /* Horizontal padding to accommodate larger numbers */
