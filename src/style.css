@@ -1,0 +1,195 @@
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap');
+
+/* Page setup - US Letter size */
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+    font-family: 'Source Sans Pro', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.legacy-sheet {
+    width: 8.5in;
+    height: 11in;
+    background: white;
+    margin: 20px auto;
+    padding: 0.75in;
+    box-sizing: border-box;
+    position: relative;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    overflow: hidden; /* Ensure content stays within bounds */
+}
+
+/* Typography */
+.generation-title {
+    font-family: 'Merriweather', serif;
+    color: #8B7D39;
+    font-size: 24px;
+    text-align: center;
+    margin-bottom: 15px;
+    font-weight: 700;
+}
+
+.horizontal-rule {
+    border: none;
+    height: 1px;
+    background-color: #8B7D39;
+    width: 80%;
+    margin: 0 auto 30px;
+}
+
+.entry-divider {
+    border: none;
+    height: 1px;
+    background-color: #CCCCCC;
+    width: 85%;
+    margin: 30px auto;
+}
+
+/* Person entries */
+.person-entry {
+    display: flex;
+    margin-bottom: 18px;
+    position: relative;
+}
+
+.person-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    background: #8B4513;
+    color: white;
+    text-align: center;
+    border-radius: 50%;
+    font-weight: bold;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.large-number {
+    font-size: 12px; /* Smaller font for larger numbers */
+}
+
+.person-content {
+    flex-grow: 1;
+    line-height: 1.5;
+}
+
+.person-name {
+    font-weight: bold;
+}
+
+.relationship-text {
+    font-weight: normal;
+}
+
+a {
+    color: #0066cc;
+    text-decoration: underline;
+}
+
+/* Indentation and family structure */
+.marriage-details {
+    margin-left: 20px;
+    margin-top: 10px;
+    display: block;
+}
+
+.children-header {
+    font-weight: bold;
+    margin-top: 15px;
+    margin-bottom: 8px;
+    margin-left: 20px;
+}
+
+.children-list {
+    margin-left: 40px;
+}
+
+.child-entry {
+    display: flex;
+    margin-top: 10px;
+    align-items: baseline;
+}
+
+.child-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    background: #8B4513;
+    color: white;
+    text-align: center;
+    border-radius: 50%;
+    font-size: 12px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Image styling */
+.person-image {
+    float: right;
+    width: 180px;
+    height: auto;
+    border-radius: 20%;
+    margin-left: 15px;
+    margin-bottom: 10px;
+}
+
+/* Footer */
+.footer {
+    position: absolute;
+    bottom: 0.75in;
+    left: 0.75in;
+    right: 0.75in;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #666;
+    border-top: 1px solid #ccc;
+    padding-top: 8px;
+}
+
+.report-name {
+    font-style: italic;
+}
+
+.page-number {
+    font-weight: bold;
+}
+
+/* Print styles to ensure the page looks correct when printed */
+@media print {
+    body {
+        margin: 0;
+        padding: 0;
+        background: none;
+    }
+    
+    .legacy-sheet {
+        width: 8.5in;
+        height: 11in;
+        margin: 0;
+        padding: 0.75in;
+        box-shadow: none;
+        page-break-after: always;
+    }
+}
+
+/* Responsive adjustments to ensure proper display on all screens */
+@media screen and (max-width: 8.5in) {
+    .legacy-sheet {
+        width: 100%;
+        height: auto;
+        min-height: 11in;
+    }
+}
