@@ -1,6 +1,7 @@
 /* Font imports */
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;900&display=swap');
 
 /* Custom Font Face for Roca Two Bold */
 @font-face {
@@ -158,23 +159,42 @@ a {
 /* Footer */
 .footer {
     position: absolute;
-    bottom: 0.123in; /* Match the bottom padding */
-    left: 0.451in; /* Match the left padding */
-    right: 0.536in; /* Match the right padding */
+    bottom: 0.123in;
+    left: 0.451in;
+    right: 0.536in;
     display: flex;
     justify-content: space-between;
-    font-size: 12px;
-    color: #666;
-    border-top: 1px solid #ccc;
-    padding-top: 8px;
+    align-items: center;
+    width: calc(8.5in - 0.451in - 0.536in); /* Full width minus left and right padding */
+}
+
+.footer-line {
+    position: absolute;
+    bottom: 0.27in; /* 0.123in bottom + 0.147in specified spacing */
+    left: 0.827in; /* Left margin as specified */
+    right: 1.059in; /* Right margin as specified */
+    height: 2px;
+    background-color: #2f3d22;
+    width: 6.6in; /* Width of 6.6 inches as specified */
+    margin: 0;
 }
 
 .report-name {
-    font-style: italic;
+    font-family: 'Public Sans', sans-serif;
+    font-weight: 400; /* Regular */
+    font-size: 10px;
+    color: #2f3d22;
+    font-style: normal; /* Not italicized */
+    margin-left: 0.376in; /* This aligns with the left edge of the line (0.827in - 0.451in) */
 }
 
 .page-number {
+    font-family: 'Public Sans', sans-serif;
+    font-weight: 900; /* Black weight */
+    font-size: 10px;
+    color: #2f3d22;
     font-weight: bold;
+    margin-right: 0.523in; /* This aligns with the right edge of the line (1.059in - 0.536in) */
 }
 
 /* Print styles to ensure the page looks correct when printed */
