@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,700&display=swap'); /* Better alternative to Canva Sans */
 
 /* Custom Font Face for Roca Two Bold */
 @font-face {
@@ -68,25 +69,33 @@ body {
     display: flex;
     margin-bottom: 18px;
     position: relative;
+    align-items: flex-start;
 }
 
 .person-number {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 30px;
-    height: 30px;
-    background: #8B4513;
-    color: white;
+    min-width: 28px; /* Base size that will grow */
+    height: 28px;
+    background: transparent; /* No fill color */
+    color: #a85733; /* Text color as specified */
     text-align: center;
-    border-radius: 50%;
+    border: 6px solid #a85733; /* Border/outline as specified */
+    border-radius: 18px; /* Corner rounding as specified */
+    font-family: 'Nunito Sans', sans-serif; /* Better alternative to Canva Sans */
+    font-size: 11px; /* Font size as specified */
     font-weight: bold;
     margin-right: 12px;
     flex-shrink: 0;
+    box-sizing: content-box; /* Ensures border doesn't affect dimensions */
+    padding: 0 5px; /* Horizontal padding to accommodate larger numbers */
 }
 
+/* For extremely large numbers */
 .large-number {
-    font-size: 12px; /* Smaller font for larger numbers */
+    padding: 0 8px; /* More horizontal padding for very large numbers */
+    font-size: 10px; /* Slightly smaller font for readability */
 }
 
 .person-content {
