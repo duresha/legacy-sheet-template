@@ -87,7 +87,7 @@ body {
     font-size: 14px; /* Font size as specified */
     font-weight: bold;
     margin-right: 12px;
-    margin-top: 3px; /* Align with the top of the entry */
+    /* margin-top: 2px; Align with the top of the entry */
     flex-shrink: 0;
     box-sizing: content-box; /* Ensures border doesn't affect dimensions */
     padding: 0 5px; /* Horizontal padding to accommodate larger numbers */
@@ -102,19 +102,27 @@ body {
 .person-content {
     flex-grow: 1;
     line-height: 1.5;
+    font-family: 'Public Sans', sans-serif;
+    font-size: 12px;
+    color: #000000;
 }
 
 .person-name {
     font-weight: bold;
+    color: #000000;
+    font-family: 'Public Sans', sans-serif;
 }
 
 .relationship-text {
     font-weight: normal;
+    font-family: 'Public Sans', sans-serif;
 }
 
 a {
-    color: #0066cc;
+    color: #0000ee; /* Standard hyperlink blue color */
     text-decoration: underline;
+    font-weight: normal;
+    font-family: 'Public Sans', sans-serif;
 }
 
 /* Indentation and family structure */
@@ -124,36 +132,76 @@ a {
     display: block;
 }
 
+/* Children styling - updated with correct requirements */
 .children-header {
+    font-family: 'Public Sans', sans-serif;
     font-weight: bold;
+    font-size: 12px;
     margin-top: 15px;
     margin-bottom: 8px;
     margin-left: 20px;
+    color: #000000;
 }
 
 .children-list {
     margin-left: 40px;
+    font-family: 'Public Sans', sans-serif;
+    font-size: 12px;
 }
 
 .child-entry {
     display: flex;
-    margin-top: 10px;
+    margin-top: 8px;
     align-items: baseline;
 }
 
+/* Style for the child marker (i., ii., etc) */
 .child-marker {
+    margin-right: 8px;
+    font-family: 'Public Sans', sans-serif;
+    font-size: 12px;
+    color: #000000;
+    font-weight: normal;
+}
+
+/* Special child with circle number */
+.special-child-number {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    background: #8B4513;
-    color: white;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    color: #a85733;
     text-align: center;
+    border: 3px solid #a85733;
     border-radius: 50%;
-    font-size: 12px;
+    font-family: 'Nunito Sans', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
     margin-right: 8px;
-    flex-shrink: 0;
+    box-sizing: content-box;
+}
+
+/* Regular child name - bold but NOT hyperlinked */
+.child-name {
+    font-weight: bold;
+    color: #000000;
+    text-decoration: none;
+}
+
+/* Numbered child name - bold AND hyperlinked */
+.numbered-child-name {
+    font-weight: bold;
+    text-decoration: underline;
+    color: #0000ee; /* Standard hyperlink blue */
+}
+
+/* Remove underline from child name links */
+.child-name a {
+    text-decoration: none;
+    color: inherit;
+    font-weight: inherit;
 }
 
 /* Image styling */
