@@ -38,18 +38,19 @@ body {
 .generation-title {
     font-family: 'Roca Two Bold', sans-serif;
     color: #656137;
-    font-size: 25px;
+    font-size: 32px;
     text-align: center;
-    margin-bottom: 15px;
+    margin-top: 0.0703in; /* Adding top padding as seen in Canva design */
+    margin-bottom: 0.115in; /* Specific padding from Canva (0.115 inches above the line) */
     font-weight: bold;
 }
 
 .horizontal-rule {
     border: none;
-    height: 1px;
-    background-color: #656137; /* Updated to match the new heading color */
-    width: 80%;
-    margin: 0 auto 30px;
+    height: 2px; /* Line weight: 2 as specified */
+    background-color: #2f3d22; /* Line color: #2f3d22 as specified */
+    width: 2.6in; /* Fixed width of 2.6 inches as mentioned in Canva */
+    margin: 0 auto 0.412in; /* Bottom padding of 0.412 inches before content starts */
 }
 
 .entry-divider {
