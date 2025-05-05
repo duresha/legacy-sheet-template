@@ -58,10 +58,10 @@ body {
 
 .entry-divider {
     border: none;
-    height: 1px;
-    background-color: #CCCCCC;
-    width: 85%;
-    margin: 30px auto;
+    height: 2px; /* Same as horizontal-rule */
+    background-color: #2f3d22; /* Same color as horizontal-rule */
+    width: 2.6in; /* Same width as horizontal-rule */
+    margin: 30px auto; /* Keep the vertical spacing */
 }
 
 /* Person entries */
@@ -207,12 +207,15 @@ a {
 /* Image styling */
 .person-image {
     float: right;
-    width: 180px;
-    height: 250px;
+    max-width: 180px; /* Maximum width */
+    max-height: 220px; /* Maximum height */
+    width: auto; /* Maintain aspect ratio */
+    height: auto; /* Maintain aspect ratio */
     border-radius: 10%;
-    margin-left: 15px;
+    margin-left: 0.145in; /* Exact padding between image and text */
     margin-bottom: 10px;
-    margin-top: -33px; /* Adjusted to align with text */
+    margin-top: -32px; /* Slightly elevated position */
+    object-fit: contain; /* Ensures image isn't cropped */
 }
 
 /* Footer */
@@ -254,6 +257,34 @@ a {
     color: #2f3d22;
     font-weight: bold;
     margin-right: 0.523in; /* This aligns with the right edge of the line (1.059in - 0.536in) */
+}
+
+/* Save PDF Button */
+.save-pdf-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background-color: #0052cc;
+    color: white;
+    border: 1px solid #003d99;
+    border-radius: 4px;
+    font-family: 'Public Sans', sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease;
+    z-index: 9999; /* Ensure it appears above all other content */
+}
+
+.save-pdf-button:hover {
+    background-color: #0066ff;
+}
+
+.save-pdf-button:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 /* Print styles to ensure the page looks correct when printed */
