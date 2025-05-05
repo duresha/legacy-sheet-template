@@ -3,98 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Legacy Sheet Template</title>
+    <title>Legacies - Genealogy Document Generator</title>
     <link rel="stylesheet" href="./style.css">
 </head>
 <body>
-    <div class="legacy-sheet">
-        <!-- Generation Header -->
-        <div class="generation-title">Sixth Generation</div>
-        <hr class="horizontal-rule">
-        
-        <!-- First Person Entry with children -->
-        <div class="person-entry">
-            <div class="person-number">9</div>
-            <div class="person-content">
-                <span class="person-name">Esther Elnora Williams</span><span class="relationship-text">, daughter of <a href="#">Jesse Williams</a> and <a href="#">Mary F. Williams</a>, was <br> born in 1890 in Dodgeville, Iowa, WI and died in 1928 in Dodgeville, Iowa, WI, at <br> age 38.</span>
-                
-                <img src="/images/ehlers.jpg" alt="Esther Elnora Williams" class="person-image">
-                
-                <div class="marriage-details">
-                    Esther married <a href="#">William Vincent Rogers Sr.</a>, son of <a href="#">George Richard Rogers</a> and <a href="#">Catherine Josephine Ruppert</a>, on 30 Mar 1910 in Iowa Co., WI.
+    <div class="app-container">
+        <!-- Left Panel: PDF Upload and Controls -->
+        <div class="panel left-panel">
+            <h2>Upload Genealogy PDF</h2>
+            <div class="upload-container" id="upload-container">
+                <div class="upload-area" id="upload-area">
+                    <img src="/images/upload-icon.svg" alt="Upload" class="upload-icon" id="upload-icon">
+                    <p>Drag & drop your PDF here<br>or <span class="browse-text">browse files</span></p>
+                    <input type="file" id="pdf-upload" accept=".pdf" class="file-input" />
                 </div>
-                
-                <div class="children-header">Children from this marriage were:</div>
-                
-                <div class="children-list">
-                    <div class="child-entry">
-                        <span class="child-marker">i.</span>
-                        <span class="child-name">Gerald "Gary" Rogers</span>, born on 8 Jan 1911 in Dodgeville, Iowa, WI.
+                <div class="upload-preview" id="upload-preview">
+                    <div class="pdf-upload-status">
+                        <div class="pdf-icon">
+                            <img src="/images/pdf-icon.svg" alt="PDF" width="40" height="40">
+                        </div>
+                        <div class="pdf-info">
+                            <div class="pdf-filename" id="pdf-filename">document.pdf</div>
+                            <div class="progress-container">
+                                <div class="progress-bar" id="extraction-progress"></div>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div class="child-entry">
-                        <span class="child-marker">ii.</span>
-                        <span class="child-name">Robert P. Rogers</span>, born on 14 Jun 1913 in Dodgeville, Iowa, WI.
-                    </div>
-                    
-                    <div class="child-entry">
-                        <span class="child-marker">iii.</span>
-                        <span class="child-name">Timothy Rogers</span>, born on 5 May 1915 in Springfield, IL.
-                    </div>
-                    
-                    <div class="child-entry">
-                        <span class="child-marker">iv.</span>
-                        <span class="child-name">Linda Rogers</span>, born on 17 Dec 1917 in Dodgeville, Iowa, WI.
-                    </div>
-                    
-                    <div class="child-entry">
-                        <div class="special-child-number">2</div>
-                        <span class="child-marker">v.</span>
-                        <a href="#" class="numbered-child-name">John Walter Rogers</a>, born on 23 Nov 1919 in Madison, Dane, WI.
-                    </div>
-                    
-                    <div class="child-entry">
-                        <span class="child-marker">vi.</span>
-                        <span class="child-name">Thomas Rogers</span>, born on 3 Feb 1922 in Madison, Dane, WI.
-                    </div>
+                    <div class="extraction-status" id="extraction-status">Waiting for PDF...</div>
+                    <button id="remove-pdf-btn" class="remove-pdf-button">Remove PDF</button>
                 </div>
+            </div>
+            
+            <div class="extracted-data-container" id="extracted-data-container">
+                <h3>Extracted Data</h3>
+                <div class="data-preview" id="data-preview">
+                    <p class="no-data-message">No data extracted yet</p>
+                </div>
+                <button id="apply-data-btn" class="action-button" disabled>Apply to Template</button>
+                <button id="unapply-data-btn" class="action-button unapply-button" style="display: none;">Revert to Original Template</button>
             </div>
         </div>
         
-        <hr class="entry-divider">
-        
-        <!-- Second Person Entry -->
-        <div class="person-entry">
-            <div class="person-number">10</div>
-            <div class="person-content">
-                <span class="person-name">Thomas Jefferson Williams</span><span class="relationship-text">, son of <a href="#">Jesse Williams</a> and <a href="#">Mary F. Williams</a>, was born on 12 Apr 1892 in Dodgeville, Iowa, WI and died on 5 Sep 1958 in Madison, Dane, WI, at age 66.</span>
+        <!-- Right Panel: Legacy Sheet Template -->
+        <div class="panel right-panel">
+            <!-- Legacy Sheet Container -->
+            <div class="legacy-sheet">
+                <!-- Generation Header -->
+                <div class="generation-title">Sixth Generation</div>
+                <hr class="horizontal-rule">
                 
-                <div class="marriage-details">
-                    Thomas married <a href="#">Elizabeth Anne Johnson</a> on 15 Oct 1915 in Mineral Point, Iowa, WI.
+                <!-- First Person Entry with children -->
+                <div class="person-entry">
+                    <div class="person-number">9</div>
+                    <div class="person-content">
+                        <span class="person-name">Esther Elnora Williams</span><span class="relationship-text">, daughter of <a href="#">Jesse Williams</a> and <a href="#">Mary F. Williams</a>, was <br> born in 1890 in Dodgeville, Iowa, WI and died in 1928 in Dodgeville, Iowa, WI, at <br> age 38.</span>
+                        
+                        <img src="/images/ehlers.jpg" alt="Esther Elnora Williams" class="person-image">
+                        
+                        <div class="marriage-details">
+                            Esther married <a href="#">William Vincent Rogers Sr.</a>, son of <a href="#">George Richard Rogers</a> and <a href="#">Catherine Josephine Ruppert</a>, on 30 Mar 1910 in Iowa Co., WI.
+                        </div>
+                        
+                        <div class="children-header">Children from this marriage were:</div>
+                        
+                        <div class="children-list">
+                            <div class="child-entry">
+                                <span class="child-marker">i.</span>
+                                <span class="child-name">Gerald "Gary" Rogers</span>, born on 8 Jan 1911 in Dodgeville, Iowa, WI.
+                            </div>
+                            
+                            <div class="child-entry">
+                                <span class="child-marker">ii.</span>
+                                <span class="child-name">Robert P. Rogers</span>, born on 14 Jun 1913 in Dodgeville, Iowa, WI.
+                            </div>
+                            
+                            <div class="child-entry">
+                                <span class="child-marker">iii.</span>
+                                <span class="child-name">Timothy Rogers</span>, born on 5 May 1915 in Springfield, IL.
+                            </div>
+                            
+                            <div class="child-entry">
+                                <span class="child-marker">iv.</span>
+                                <span class="child-name">Linda Rogers</span>, born on 17 Dec 1917 in Dodgeville, Iowa, WI.
+                            </div>
+                            
+                            <div class="child-entry">
+                                <div class="special-child-number">2</div>
+                                <span class="child-marker">v.</span>
+                                <a href="#" class="numbered-child-name">John Walter Rogers</a>, born on 23 Nov 1919 in Madison, Dane, WI.
+                            </div>
+                            
+                            <div class="child-entry">
+                                <span class="child-marker">vi.</span>
+                                <span class="child-name">Thomas Rogers</span>, born on 3 Feb 1922 in Madison, Dane, WI.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="entry-divider">
+                
+                <!-- Second Person Entry -->
+                <div class="person-entry">
+                    <div class="person-number">10</div>
+                    <div class="person-content">
+                        <span class="person-name">Thomas Jefferson Williams</span><span class="relationship-text">, son of <a href="#">Jesse Williams</a> and <a href="#">Mary F. Williams</a>, was born on 12 Apr 1892 in Dodgeville, Iowa, WI and died on 5 Sep 1958 in Madison, Dane, WI, at age 66.</span>
+                        
+                        <div class="marriage-details">
+                            Thomas married <a href="#">Elizabeth Anne Johnson</a> on 15 Oct 1915 in Mineral Point, Iowa, WI.
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="entry-divider">
+                
+                <!-- Third Person Entry with large number -->
+                <div class="person-entry">
+                    <div class="person-number">11</div>
+                    <div class="person-content">
+                        <span class="person-name">Sarah Emily Williams</span><span class="relationship-text">, daughter of <a href="#">Jesse Williams</a> and <a href="#">Mary F. Williams</a>, was born on 24 Dec 1895 in Dodgeville, Iowa, WI.</span>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class="footer-line"></div>
+                <div class="footer">
+                    <div class="report-name">Sapling Platinum Report</div>
+                    <div class="page-number">12</div>
                 </div>
             </div>
-        </div>
-        
-        <hr class="entry-divider">
-        
-        <!-- Third Person Entry with large number -->
-        <div class="person-entry">
-            <div class="person-number">11</div>
-            <div class="person-content">
-                <span class="person-name">Sarah Emily Williams</span><span class="relationship-text">, daughter of <a href="#">Jesse Williams</a> and <a href="#">Mary F. Williams</a>, was born on 24 Dec 1895 in Dodgeville, Iowa, WI.</span>
-            </div>
-        </div>
-        
-        <!-- Footer -->
-        <div class="footer-line"></div>
-        <div class="footer">
-            <div class="report-name">Sapling Platinum Report</div>
-            <div class="page-number">12</div>
         </div>
     </div>
 
-    <!-- Save PDF Button - moved outside the legacy-sheet div -->
-    <button id="save-pdf-btn" class="save-pdf-button">Save PDF</button>
+    <!-- Action buttons -->
+    <div class="action-buttons">
+        <button id="save-pdf-btn" class="save-pdf-button">Save PDF</button>
+    </div>
 
     <script type="module" src="./main.js"></script>
 </body>
