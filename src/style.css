@@ -87,7 +87,7 @@ body {
     font-size: 14px; /* Font size as specified */
     font-weight: bold;
     margin-right: 12px;
-    /* margin-top: 2px; Align with the top of the entry */
+     margin-top: 3px; /* Align with the top of the entry */
     flex-shrink: 0;
     box-sizing: content-box; /* Ensures border doesn't affect dimensions */
     padding: 0 5px; /* Horizontal padding to accommodate larger numbers */
@@ -192,7 +192,7 @@ a {
 
 /* Numbered child name - bold AND hyperlinked */
 .numbered-child-name {
-    font-weight: bold;
+    font-weight: regular;
     text-decoration: underline;
     color: #0000ee; /* Standard hyperlink blue */
 }
@@ -208,16 +208,17 @@ a {
 .person-image {
     float: right;
     width: 180px;
-    height: auto;
-    border-radius: 20%;
+    height: 250px;
+    border-radius: 10%;
     margin-left: 15px;
     margin-bottom: 10px;
+    margin-top: -33px; /* Adjusted to align with text */
 }
 
 /* Footer */
 .footer {
     position: absolute;
-    bottom: 0.123in;
+    bottom: 0.15in;
     left: 0.451in;
     right: 0.536in;
     display: flex;
@@ -228,7 +229,7 @@ a {
 
 .footer-line {
     position: absolute;
-    bottom: 0.27in; /* 0.123in bottom + 0.147in specified spacing */
+    bottom: 0.4in; /* 0.123in bottom + 0.147in specified spacing */
     left: 0.827in; /* Left margin as specified */
     right: 1.059in; /* Right margin as specified */
     height: 2px;
@@ -240,7 +241,7 @@ a {
 .report-name {
     font-family: 'Public Sans', sans-serif;
     font-weight: 400; /* Regular */
-    font-size: 10px;
+    font-size: 12px;
     color: #2f3d22;
     font-style: normal; /* Not italicized */
     margin-left: 0.376in; /* This aligns with the left edge of the line (0.827in - 0.451in) */
@@ -249,7 +250,7 @@ a {
 .page-number {
     font-family: 'Public Sans', sans-serif;
     font-weight: 900; /* Black weight */
-    font-size: 10px;
+    font-size: 12px;
     color: #2f3d22;
     font-weight: bold;
     margin-right: 0.523in; /* This aligns with the right edge of the line (1.059in - 0.536in) */
