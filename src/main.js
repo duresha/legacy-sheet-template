@@ -430,14 +430,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Persons
       parsedData.persons.forEach(person => {
+        // Split the first line into bold name and normal text
+        let firstLine = '';
+        let restLines = '';
+        if (person.raw) {
+          const lines = person.raw.split(/\r?\n/).filter(line => line.trim() !== '');
+          if (lines.length > 0) {
+            // Try to extract the name and the rest of the first line
+            const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([^.,]+)([\s\S]*)/);
+            if (firstLineMatch) {
+              // number, name, rest of first line
+              const name = firstLineMatch[2].trim();
+              const afterName = firstLineMatch[3] ? firstLineMatch[3] : '';
+              firstLine = `<b>${preserveHyperlinks(name)}</b>${preserveHyperlinks(afterName)}`;
+            } else {
+              firstLine = preserveHyperlinks(lines[0]);
+            }
+            restLines = lines.slice(1).map(l => `<div class='indented-paragraph'>${preserveHyperlinks(l)}</div>`).join('');
+          }
+        }
         html += `
           <div class="parsed-person">
             <div class="parsed-person-header">
               <span class="parsed-person-number">${person.number}</span>
-              <span class="parsed-person-name">${person.name ? '<b>' + person.name + '</b>' : ''}</span>
             </div>
             <div class="parsed-person-details">
-              <div class="parsed-person-raw">${person.rest.replace(/\n/g, '<br>')}</div>
+              <div>${firstLine}</div>
+              ${restLines}
             </div>
           </div>
         `;
@@ -452,6 +471,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Store the parsed data for later use
     window.parsedGenealogyData = parsedData;
+  }
+
+  // Helper to preserve hyperlinks if present in the text
+  function preserveHyperlinks(text) {
+    // If the text already contains <a href=...>, return as is
+    if (/<a\s+href=/.test(text)) return text;
+    // If the text contains [Name](url) style, convert to <a href="url">Name</a>
+    return text.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
   }
 
   // Store original template data when the page loads
@@ -504,20 +531,30 @@ document.addEventListener('DOMContentLoaded', function() {
       const personContent = document.createElement('div');
       personContent.className = 'person-content';
 
-      // Person name and rest of the info
-      if (person.name) {
-        const personName = document.createElement('span');
-        personName.className = 'person-name';
-        personName.innerHTML = '<b>' + person.name + '</b>';
-        personContent.appendChild(personName);
-      }
-
-      // Add the rest of the entry as a paragraph, preserving line breaks
-      if (person.rest) {
-        const restDiv = document.createElement('div');
-        restDiv.className = 'person-rest';
-        restDiv.innerHTML = person.rest.replace(/\n/g, '<br>');
-        personContent.appendChild(restDiv);
+      // Split the first line into bold name and normal text
+      if (person.raw) {
+        const lines = person.raw.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length > 0) {
+          const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([^.,]+)([\s\S]*)/);
+          let firstLine = '';
+          if (firstLineMatch) {
+            const name = firstLineMatch[2].trim();
+            const afterName = firstLineMatch[3] ? firstLineMatch[3] : '';
+            firstLine = `<b>${preserveHyperlinks(name)}</b>${preserveHyperlinks(afterName)}`;
+          } else {
+            firstLine = preserveHyperlinks(lines[0]);
+          }
+          const firstLineDiv = document.createElement('div');
+          firstLineDiv.innerHTML = firstLine;
+          personContent.appendChild(firstLineDiv);
+          // Indent subsequent paragraphs
+          for (let i = 1; i < lines.length; i++) {
+            const paraDiv = document.createElement('div');
+            paraDiv.className = 'indented-paragraph';
+            paraDiv.innerHTML = preserveHyperlinks(lines[i]);
+            personContent.appendChild(paraDiv);
+          }
+        }
       }
 
       // Assemble the person entry
