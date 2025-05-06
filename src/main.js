@@ -307,107 +307,62 @@ document.addEventListener('DOMContentLoaded', function() {
   function processExtractedText(text) {
     extractionStatus.textContent = 'Analyzing genealogy data...';
     updateProgressBar(75);
-    
-    // Initialize our parsed data structure
-    const parsedData = {
-      generation: '',
-      persons: []
-    };
-    
+
     // Try to identify generation title
-    const generationMatch = text.match(/(\w+)\s+Generation/i);
+    let generationTitle = '';
+    const generationMatch = text.match(/^(.*?Generation)/im);
     if (generationMatch) {
-      parsedData.generation = generationMatch[0];
+      generationTitle = generationMatch[1].trim();
     }
-    
-    updateProgressBar(80);
-    
-    // Regular expressions for identifying person entries
-    const personRegex = /(\d+)\.\s+([A-Za-z\s]+),\s+(son|daughter)\s+of\s+([A-Za-z\s]+)\s+and\s+([A-Za-z\s]+),\s+was\s+born\s+(on|in)\s+(.+?)(\s+in\s+(.+?))?(\s+and\s+died\s+(on|in)\s+(.+?)(\s+in\s+(.+?))?)?/g;
-    const marriageRegex = /married\s+([A-Za-z\s]+)\s+(on|in)\s+(.+?)(\s+in\s+(.+?))?/g;
-    const childrenRegex = /Children\s+from\s+this\s+marriage\s+were:/i;
-    const childRegex = /(i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii)\.\s+([A-Za-z\s"]+),\s+born\s+(on|in)\s+(.+?)(\s+in\s+(.+?))?/g;
-    
-    // Look for person entries
+
+    // Split text into person entries by numbers at the start of a line (e.g., 119., 120., etc.)
+    const personEntryRegex = /^\s*(\d{1,4})\.\s/mg;
     let match;
-    let currentText = text;
-    let lastIndex = 0;
-    
-    updateProgressBar(85);
-    
-    // Extract person entries
-    while ((match = personRegex.exec(currentText)) !== null) {
-      const personNumber = match[1];
-      const personName = match[2].trim();
-      const relationship = match[3]; // son or daughter
-      const father = match[4].trim();
-      const mother = match[5].trim();
-      const birthDatePrefix = match[6]; // on or in
-      const birthDateInfo = match[7].trim();
-      const birthPlace = match[9] ? match[9].trim() : '';
-      const hasDeath = match[10] ? true : false;
-      const deathDateInfo = hasDeath ? match[12].trim() : '';
-      const deathPlace = hasDeath && match[14] ? match[14].trim() : '';
-      
-      // Create a person object
-      const person = {
-        number: personNumber,
-        name: personName,
-        relationship: relationship,
-        father: father,
-        mother: mother,
-        birthInfo: `${birthDatePrefix} ${birthDateInfo}${birthPlace ? ' in ' + birthPlace : ''}`,
-        deathInfo: hasDeath ? `${match[11]} ${deathDateInfo}${deathPlace ? ' in ' + deathPlace : ''}` : '',
-        marriages: [],
-        children: []
-      };
-      
-      // Look for marriage info
-      const personTextEnd = currentText.indexOf(personNumber + 1 + '.', match.index);
-      const personText = personTextEnd !== -1 ? 
-        currentText.substring(match.index, personTextEnd) : 
-        currentText.substring(match.index);
-      
-      let marriageMatch;
-      while ((marriageMatch = marriageRegex.exec(personText)) !== null) {
-        const spouseName = marriageMatch[1].trim();
-        const marriageDatePrefix = marriageMatch[2]; // on or in
-        const marriageDateInfo = marriageMatch[3].trim();
-        const marriagePlace = marriageMatch[5] ? marriageMatch[5].trim() : '';
-        
-        person.marriages.push({
-          spouse: spouseName,
-          info: `${marriageDatePrefix} ${marriageDateInfo}${marriagePlace ? ' in ' + marriagePlace : ''}`
-        });
-      }
-      
-      // Look for children
-      if (childrenRegex.test(personText)) {
-        let childMatch;
-        while ((childMatch = childRegex.exec(personText)) !== null) {
-          const childMarker = childMatch[1];
-          const childName = childMatch[2].trim();
-          const birthDatePrefix = childMatch[3]; // on or in
-          const birthDateInfo = childMatch[4].trim();
-          const birthPlace = childMatch[6] ? childMatch[6].trim() : '';
-          
-          person.children.push({
-            marker: childMarker,
-            name: childName,
-            birthInfo: `${birthDatePrefix} ${birthDateInfo}${birthPlace ? ' in ' + birthPlace : ''}`
-          });
-        }
-      }
-      
-      // Add the person to our parsed data
-      parsedData.persons.push(person);
-      
-      lastIndex = match.index + match[0].length;
+    let indices = [];
+    while ((match = personEntryRegex.exec(text)) !== null) {
+      indices.push({
+        index: match.index,
+        number: match[1]
+      });
     }
-    
+
+    let persons = [];
+    for (let i = 0; i < indices.length; i++) {
+      const start = indices[i].index;
+      const end = i + 1 < indices.length ? indices[i + 1].index : text.length;
+      const entryText = text.slice(start, end).trim();
+      // Extract number
+      const numberMatch = entryText.match(/^(\d{1,4})\.\s*/);
+      let number = numberMatch ? numberMatch[1] : '';
+      // Remove the number prefix
+      let restText = entryText.replace(/^(\d{1,4})\.\s*/, '');
+      // Split into lines
+      const lines = restText.split(/\r?\n/).filter(line => line.trim() !== '');
+      let name = '';
+      let rest = '';
+      if (lines.length > 0) {
+        // If the first line is bolded (e.g., **Name**), use it as name
+        // Otherwise, just use the first line
+        name = lines[0].replace(/\*\*(.+)\*\*/, '$1').trim();
+        rest = lines.slice(1).join('\n');
+      } else {
+        rest = restText;
+      }
+      persons.push({
+        number,
+        name,
+        raw: entryText,
+        rest
+      });
+    }
+
+    // Build parsedData structure
+    const parsedData = {
+      generation: generationTitle,
+      persons
+    };
+
     updateProgressBar(95);
-    
-    // Display the parsed data
     displayParsedData(parsedData);
   }
 
@@ -453,64 +408,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Modify the existing displayParsedData function to handle view state
   function displayParsedData(parsedData) {
-    if (parsedData.persons.length === 0) {
+    if (!parsedData.persons || parsedData.persons.length === 0) {
       dataPreview.innerHTML = '<p class="no-data-message">No genealogy data could be extracted. Please try another file or format.</p>';
       extractionStatus.textContent = 'No genealogy data found';
       updateProgressBar(0);
       return;
     }
-    
+
     // Extraction complete
     updateProgressBar(100);
     extractionStatus.textContent = 'Data extraction complete!';
-    
+
     // Only update the display if we're in parsed view
     if (parsedViewBtn.classList.contains('active')) {
       let html = '';
-      
+
       // Generation title
       if (parsedData.generation) {
         html += `<div class="parsed-item"><strong>Generation:</strong> ${parsedData.generation}</div>`;
       }
-      
+
       // Persons
       parsedData.persons.forEach(person => {
         html += `
           <div class="parsed-person">
             <div class="parsed-person-header">
               <span class="parsed-person-number">${person.number}</span>
-              <span class="parsed-person-name">${person.name}</span>
+              <span class="parsed-person-name">${person.name ? '<b>' + person.name + '</b>' : ''}</span>
             </div>
             <div class="parsed-person-details">
-              <div><strong>Relationship:</strong> ${person.relationship} of ${person.father} and ${person.mother}</div>
-              <div><strong>Birth:</strong> ${person.birthInfo}</div>
-              ${person.deathInfo ? `<div><strong>Death:</strong> ${person.deathInfo}</div>` : ''}
-              
-              ${person.marriages.length > 0 ? 
-                `<div class="parsed-marriages">
-                  <strong>Marriages:</strong>
-                  ${person.marriages.map(m => `<div>Married ${m.spouse} ${m.info}</div>`).join('')}
-                </div>` : ''}
-              
-              ${person.children.length > 0 ? 
-                `<div class="parsed-children">
-                  <strong>Children:</strong>
-                  <ul>
-                    ${person.children.map(c => `<li>${c.marker}. ${c.name}, born ${c.birthInfo}</li>`).join('')}
-                  </ul>
-                </div>` : ''}
+              <div class="parsed-person-raw">${person.rest.replace(/\n/g, '<br>')}</div>
             </div>
           </div>
         `;
       });
-      
+
       // Update the data preview
       dataPreview.innerHTML = html;
     }
-    
+
     // Enable the apply data button
     applyDataBtn.disabled = false;
-    
+
     // Store the parsed data for later use
     window.parsedGenealogyData = parsedData;
   }
@@ -528,127 +467,66 @@ document.addEventListener('DOMContentLoaded', function() {
       alert('No data available to apply to the template.');
       return;
     }
-    
+
     const data = window.parsedGenealogyData;
-    
-    // Update the generation title
+
+    // Update the generation title only if found
     if (data.generation) {
       const generationTitle = document.querySelector('.generation-title');
       if (generationTitle) {
         generationTitle.textContent = data.generation;
       }
     }
-    
+
     // Clear existing person entries
     const legacySheet = document.querySelector('.legacy-sheet');
     const existingEntries = legacySheet.querySelectorAll('.person-entry');
     const horizontalRule = document.querySelector('.horizontal-rule');
-    
+
     // Remove all person entries but keep the first horizontal rule
     existingEntries.forEach(entry => {
       entry.nextElementSibling?.remove(); // Remove divider if present
       entry.remove();
     });
-    
+
     // Create new person entries
-    let lastElement = horizontalRule;
-    
     data.persons.forEach((person, index) => {
       // Create person entry
       const personEntry = document.createElement('div');
       personEntry.className = 'person-entry';
-      
+
       // Person number
       const personNumber = document.createElement('div');
       personNumber.className = 'person-number';
       personNumber.textContent = person.number;
-      
+
       // Person content
       const personContent = document.createElement('div');
       personContent.className = 'person-content';
-      
-      // Person name and basic info
-      const personName = document.createElement('span');
-      personName.className = 'person-name';
-      personName.textContent = person.name;
-      
-      const relationshipText = document.createElement('span');
-      relationshipText.className = 'relationship-text';
-      
-      // Create father and mother links
-      const fatherLink = document.createElement('a');
-      fatherLink.href = '#';
-      fatherLink.textContent = person.father;
-      
-      const motherLink = document.createElement('a');
-      motherLink.href = '#';
-      motherLink.textContent = person.mother;
-      
-      // Build the relationship text
-      let relationshipHTML = `, ${person.relationship} of `;
-      relationshipText.innerHTML = `${relationshipHTML}${fatherLink.outerHTML} and ${motherLink.outerHTML}, was <br> born ${person.birthInfo}`;
-      
-      if (person.deathInfo) {
-        relationshipText.innerHTML += ` and died ${person.deathInfo}`;
+
+      // Person name and rest of the info
+      if (person.name) {
+        const personName = document.createElement('span');
+        personName.className = 'person-name';
+        personName.innerHTML = '<b>' + person.name + '</b>';
+        personContent.appendChild(personName);
       }
-      
-      personContent.appendChild(personName);
-      personContent.appendChild(relationshipText);
-      
-      // Add marriages if present
-      if (person.marriages.length > 0) {
-        person.marriages.forEach(marriage => {
-          const marriageDetails = document.createElement('div');
-          marriageDetails.className = 'marriage-details';
-          
-          const spouseLink = document.createElement('a');
-          spouseLink.href = '#';
-          spouseLink.textContent = marriage.spouse;
-          
-          marriageDetails.innerHTML = `${person.name.split(' ')[0]} married ${spouseLink.outerHTML} ${marriage.info}.`;
-          personContent.appendChild(marriageDetails);
-        });
+
+      // Add the rest of the entry as a paragraph, preserving line breaks
+      if (person.rest) {
+        const restDiv = document.createElement('div');
+        restDiv.className = 'person-rest';
+        restDiv.innerHTML = person.rest.replace(/\n/g, '<br>');
+        personContent.appendChild(restDiv);
       }
-      
-      // Add children if present
-      if (person.children.length > 0) {
-        const childrenHeader = document.createElement('div');
-        childrenHeader.className = 'children-header';
-        childrenHeader.textContent = 'Children from this marriage were:';
-        personContent.appendChild(childrenHeader);
-        
-        const childrenList = document.createElement('div');
-        childrenList.className = 'children-list';
-        
-        person.children.forEach((child, childIndex) => {
-          const childEntry = document.createElement('div');
-          childEntry.className = 'child-entry';
-          
-          const childMarker = document.createElement('span');
-          childMarker.className = 'child-marker';
-          childMarker.textContent = child.marker + '.';
-          
-          const childName = document.createElement('span');
-          childName.className = 'child-name';
-          childName.textContent = child.name;
-          
-          childEntry.appendChild(childMarker);
-          childEntry.appendChild(childName);
-          childEntry.innerHTML += `, born ${child.birthInfo}.`;
-          
-          childrenList.appendChild(childEntry);
-        });
-        
-        personContent.appendChild(childrenList);
-      }
-      
+
       // Assemble the person entry
       personEntry.appendChild(personNumber);
       personEntry.appendChild(personContent);
-      
+
       // Add to the document
       legacySheet.insertBefore(personEntry, document.querySelector('.footer-line'));
-      
+
       // Add divider after each person (except the last one)
       if (index < data.persons.length - 1) {
         const divider = document.createElement('hr');
@@ -656,16 +534,16 @@ document.addEventListener('DOMContentLoaded', function() {
         legacySheet.insertBefore(divider, document.querySelector('.footer-line'));
       }
     });
-    
+
     // Update button states
     applyDataBtn.textContent = 'Applied to Template';
     applyDataBtn.classList.add('applied-button');
     applyDataBtn.disabled = true;
-    
+
     // Show unapply button
     const unapplyBtn = document.getElementById('unapply-data-btn');
     unapplyBtn.style.display = 'block';
-    
+
     // Update extraction status
     extractionStatus.textContent = `Applied ${data.persons.length} person entries to the template`;
   });
