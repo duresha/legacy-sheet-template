@@ -3,7 +3,6 @@
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { saveAs } from 'file-saver';
-// Import PDF.js for PDF text extraction
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure the PDF.js worker to use a local file
@@ -227,16 +226,61 @@ document.addEventListener('DOMContentLoaded', function() {
       
       extractionStatus.textContent = `PDF loaded successfully. Pages: ${pdfDocument.numPages}`;
       
-      // Extract text from each page
+      // Extract text from each page with layout preservation
       let fullText = '';
+      let rawTextData = []; // Store raw text data for display
+      
       for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
         extractionStatus.textContent = `Extracting text from page ${pageNum}/${pdfDocument.numPages}...`;
         
         const page = await pdfDocument.getPage(pageNum);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(' ');
+        
+        // Sort text items by vertical position (top to bottom) and then horizontal position (left to right)
+        const sortedItems = textContent.items.sort((a, b) => {
+          const verticalDiff = Math.abs(a.transform[5] - b.transform[5]);
+          if (verticalDiff > 5) { // If items are on different lines (more than 5 units apart)
+            return b.transform[5] - a.transform[5]; // Sort by vertical position (top to bottom)
+          }
+          return a.transform[4] - b.transform[4]; // Sort by horizontal position (left to right)
+        });
+        
+        // Group items by line (items that are close vertically)
+        let currentLine = [];
+        let currentLineY = null;
+        let pageText = '';
+        
+        sortedItems.forEach(item => {
+          if (currentLineY === null) {
+            currentLineY = item.transform[5];
+          }
+          
+          // If this item is on a new line (more than 5 units different in Y position)
+          if (Math.abs(item.transform[5] - currentLineY) > 5) {
+            // Add the previous line to the page text
+            if (currentLine.length > 0) {
+              pageText += currentLine.join(' ') + '\n';
+            }
+            currentLine = [];
+            currentLineY = item.transform[5];
+          }
+          
+          currentLine.push(item.str);
+        });
+        
+        // Add the last line
+        if (currentLine.length > 0) {
+          pageText += currentLine.join(' ') + '\n';
+        }
         
         fullText += pageText + '\n\n';
+        
+        // Store raw text data for display
+        rawTextData.push({
+          pageNumber: pageNum,
+          text: pageText,
+          items: textContent.items
+        });
         
         // Update progress based on pages (from 30% to 70%)
         const progressPercent = 30 + (pageNum / pdfDocument.numPages * 40);
@@ -246,6 +290,9 @@ document.addEventListener('DOMContentLoaded', function() {
       // Progress to analysis phase
       updateProgressBar(70);
       extractionStatus.textContent = 'Analyzing extracted text...';
+      
+      // Store raw text data for display
+      window.rawExtractedText = rawTextData;
       
       // Process the extracted text
       processExtractedText(fullText);
@@ -364,7 +411,47 @@ document.addEventListener('DOMContentLoaded', function() {
     displayParsedData(parsedData);
   }
 
-  // Display the parsed data in the data preview area
+  // Add view toggle functionality
+  const rawViewBtn = document.getElementById('raw-view-btn');
+  const parsedViewBtn = document.getElementById('parsed-view-btn');
+
+  rawViewBtn.addEventListener('click', function() {
+    rawViewBtn.classList.add('active');
+    parsedViewBtn.classList.remove('active');
+    displayRawExtractedText();
+  });
+
+  parsedViewBtn.addEventListener('click', function() {
+    parsedViewBtn.classList.add('active');
+    rawViewBtn.classList.remove('active');
+    if (window.parsedGenealogyData) {
+      displayParsedData(window.parsedGenealogyData);
+    }
+  });
+
+  // Display raw extracted text
+  function displayRawExtractedText() {
+    if (!window.rawExtractedText) {
+      dataPreview.innerHTML = '<p class="no-data-message">No data extracted yet</p>';
+      return;
+    }
+    
+    let html = '<div class="raw-text-view">';
+    
+    window.rawExtractedText.forEach(page => {
+      html += `
+        <div class="raw-text-page">
+          <div class="raw-text-page-header">Page ${page.pageNumber}</div>
+          <div class="raw-text-content">${page.text}</div>
+        </div>
+      `;
+    });
+    
+    html += '</div>';
+    dataPreview.innerHTML = html;
+  }
+
+  // Modify the existing displayParsedData function to handle view state
   function displayParsedData(parsedData) {
     if (parsedData.persons.length === 0) {
       dataPreview.innerHTML = '<p class="no-data-message">No genealogy data could be extracted. Please try another file or format.</p>';
@@ -377,46 +464,49 @@ document.addEventListener('DOMContentLoaded', function() {
     updateProgressBar(100);
     extractionStatus.textContent = 'Data extraction complete!';
     
-    let html = '';
-    
-    // Generation title
-    if (parsedData.generation) {
-      html += `<div class="parsed-item"><strong>Generation:</strong> ${parsedData.generation}</div>`;
+    // Only update the display if we're in parsed view
+    if (parsedViewBtn.classList.contains('active')) {
+      let html = '';
+      
+      // Generation title
+      if (parsedData.generation) {
+        html += `<div class="parsed-item"><strong>Generation:</strong> ${parsedData.generation}</div>`;
+      }
+      
+      // Persons
+      parsedData.persons.forEach(person => {
+        html += `
+          <div class="parsed-person">
+            <div class="parsed-person-header">
+              <span class="parsed-person-number">${person.number}</span>
+              <span class="parsed-person-name">${person.name}</span>
+            </div>
+            <div class="parsed-person-details">
+              <div><strong>Relationship:</strong> ${person.relationship} of ${person.father} and ${person.mother}</div>
+              <div><strong>Birth:</strong> ${person.birthInfo}</div>
+              ${person.deathInfo ? `<div><strong>Death:</strong> ${person.deathInfo}</div>` : ''}
+              
+              ${person.marriages.length > 0 ? 
+                `<div class="parsed-marriages">
+                  <strong>Marriages:</strong>
+                  ${person.marriages.map(m => `<div>Married ${m.spouse} ${m.info}</div>`).join('')}
+                </div>` : ''}
+              
+              ${person.children.length > 0 ? 
+                `<div class="parsed-children">
+                  <strong>Children:</strong>
+                  <ul>
+                    ${person.children.map(c => `<li>${c.marker}. ${c.name}, born ${c.birthInfo}</li>`).join('')}
+                  </ul>
+                </div>` : ''}
+            </div>
+          </div>
+        `;
+      });
+      
+      // Update the data preview
+      dataPreview.innerHTML = html;
     }
-    
-    // Persons
-    parsedData.persons.forEach(person => {
-      html += `
-        <div class="parsed-person">
-          <div class="parsed-person-header">
-            <span class="parsed-person-number">${person.number}</span>
-            <span class="parsed-person-name">${person.name}</span>
-          </div>
-          <div class="parsed-person-details">
-            <div><strong>Relationship:</strong> ${person.relationship} of ${person.father} and ${person.mother}</div>
-            <div><strong>Birth:</strong> ${person.birthInfo}</div>
-            ${person.deathInfo ? `<div><strong>Death:</strong> ${person.deathInfo}</div>` : ''}
-            
-            ${person.marriages.length > 0 ? 
-              `<div class="parsed-marriages">
-                <strong>Marriages:</strong>
-                ${person.marriages.map(m => `<div>Married ${m.spouse} ${m.info}</div>`).join('')}
-              </div>` : ''}
-            
-            ${person.children.length > 0 ? 
-              `<div class="parsed-children">
-                <strong>Children:</strong>
-                <ul>
-                  ${person.children.map(c => `<li>${c.marker}. ${c.name}, born ${c.birthInfo}</li>`).join('')}
-                </ul>
-              </div>` : ''}
-          </div>
-        </div>
-      `;
-    });
-    
-    // Update the data preview
-    dataPreview.innerHTML = html;
     
     // Enable the apply data button
     applyDataBtn.disabled = false;
