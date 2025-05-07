@@ -69,14 +69,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // PDF Upload and Processing Functionality
   const uploadArea = document.getElementById('upload-area');
-  const fileInput = document.getElementById('pdf-upload');
+  const fileInput = document.getElementById('image-upload');
   const uploadPreview = document.getElementById('upload-preview');
-  const pdfFilename = document.getElementById('pdf-filename');
+  const pdfFilename = document.getElementById('image-filename');
   const extractionProgress = document.getElementById('extraction-progress');
   const extractionStatus = document.getElementById('extraction-status');
   const dataPreview = document.getElementById('data-preview');
   const applyDataBtn = document.getElementById('apply-data-btn');
-  const removePdfBtn = document.getElementById('remove-pdf-btn');
+  const removePdfBtn = document.getElementById('remove-image-btn');
 
   // Handle remove PDF button click
   removePdfBtn.addEventListener('click', function() {
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
     extractionProgress.style.width = '0%';
     
     // Reset extraction status
-    extractionStatus.textContent = 'Waiting for PDF...';
+    extractionStatus.textContent = 'Waiting for Image...';
     
     // Clear extracted data
     dataPreview.innerHTML = '<p class="no-data-message">No data extracted yet</p>';
@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Show the upload area again
     uploadArea.style.display = 'flex';
     
-    console.log('PDF removed and interface reset');
+    console.log('Image removed and interface reset');
   });
 
   // Handle drag and drop events
@@ -145,6 +145,39 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  // Handle paste event for images globally
+  document.addEventListener('paste', handlePaste, false);
+
+  function handlePaste(e) {
+    // Only process paste if the upload area is visible
+    if (uploadArea.style.display === 'none') {
+      console.log('Paste event ignored: upload area is not visible.');
+      return;
+    }
+
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    let imageFile = null;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        imageFile = items[i].getAsFile();
+        break;
+      }
+    }
+
+    if (imageFile) {
+      // Create a FileList-like object to pass to handleFiles
+      // as handleFiles expects a FileList
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(imageFile);
+      handleFiles(dataTransfer.files);
+      e.preventDefault(); // Prevent default paste action (e.g., displaying image in browser)
+    } else {
+      console.log('Pasted content was not an image.');
+      // Optionally, inform the user that only images can be pasted
+      // alert('Only images can be pasted.');
+    }
+  }
+
   // Handle file input change
   fileInput.addEventListener('change', function(e) {
     console.log('File input change event triggered');
@@ -157,12 +190,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Fix click handler to properly trigger file selection
   uploadArea.addEventListener('click', function(e) {
-    // Only trigger if we're clicking on the upload area itself or its direct children
-    if (e.target === uploadArea || e.target.parentNode === uploadArea ||
-        e.target.classList.contains('upload-icon') || 
-        e.target.classList.contains('browse-text')) {
-      
-      console.log('Upload area clicked, triggering file input click');
+    // Only trigger if we're clicking on the "browse image" text
+    if (e.target.classList.contains('browse-text')) {
+      console.log('Browse image text clicked, triggering file input click');
       // Reset the file input to ensure change event fires even if selecting the same file
       fileInput.value = '';
       fileInput.click();
@@ -177,9 +207,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const file = files[0];
     console.log('Processing file:', file.name, file.type);
     
-    // Check if the file is a PDF
-    if (file.type !== 'application/pdf') {
-      alert('Please upload a PDF file.');
+    // Check if the file is an Image
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file.');
       return;
     }
     
@@ -196,13 +226,13 @@ document.addEventListener('DOMContentLoaded', function() {
     extractionProgress.style.width = '0%';
     
     // Update extraction status
-    extractionStatus.textContent = 'Processing PDF...';
+    extractionStatus.textContent = 'Processing Image...';
     
     // Start with initial progress
     updateProgressBar(5);
     
     // Extract text from PDF
-    extractTextFromPdf(file);
+    extractTextFromImageWithOCR(file);
   }
 
   // Update progress bar
@@ -210,7 +240,8 @@ document.addEventListener('DOMContentLoaded', function() {
     extractionProgress.style.width = percent + '%';
   }
 
-  // Extract text from PDF
+  // Extract text from PDF (No longer used, will be removed or commented)
+  /*
   async function extractTextFromPdf(pdfFile) {
     try {
       extractionStatus.textContent = 'Extracting text...';
@@ -302,6 +333,7 @@ document.addEventListener('DOMContentLoaded', function() {
       updateProgressBar(0);
     }
   }
+  */
 
   // Process the extracted text to identify genealogy data
   function processExtractedText(text) {
@@ -393,14 +425,31 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let html = '<div class="raw-text-view">';
     
-    window.rawExtractedText.forEach(page => {
+    // Check if rawExtractedText is an array (for old PDF logic) or a single object/string (for new OCR logic)
+    if (Array.isArray(window.rawExtractedText)) {
+      window.rawExtractedText.forEach(page => {
+        html += `
+          <div class="raw-text-page">
+            <div class="raw-text-page-header">Page ${page.pageNumber}</div>
+            <div class="raw-text-content">${page.text}</div>
+          </div>
+        `;
+      });
+    } else if (window.rawExtractedText && typeof window.rawExtractedText.text === 'string') { // Assuming OCR might put text in rawExtractedText.text
       html += `
         <div class="raw-text-page">
-          <div class="raw-text-page-header">Page ${page.pageNumber}</div>
-          <div class="raw-text-content">${page.text}</div>
+          <div class="raw-text-page-header">Extracted Text (OCR)</div>
+          <div class="raw-text-content">${window.rawExtractedText.text}</div>
         </div>
       `;
-    });
+    } else if (typeof window.rawExtractedText === 'string') { // If rawExtractedText is just the string
+       html += `
+        <div class="raw-text-page">
+          <div class="raw-text-page-header">Extracted Text (OCR)</div>
+          <div class="raw-text-content">${window.rawExtractedText}</div>
+        </div>
+      `;
+    }
     
     html += '</div>';
     dataPreview.innerHTML = html;
@@ -631,4 +680,48 @@ document.addEventListener('DOMContentLoaded', function() {
     
     extractionStatus.textContent = 'Reverted to original template data';
   });
+
+  async function extractTextFromImageWithOCR(imageFile) {
+    try {
+      extractionStatus.textContent = 'Preparing image for OCR...';
+      updateProgressBar(10);
+
+      const { data: { text } } = await Tesseract.recognize(
+        imageFile,
+        'eng', // Language - English. Add more or make configurable if needed.
+        {
+          logger: m => {
+            console.log(m); // Log Tesseract progress
+            if (m.status === 'recognizing text') {
+              // Tesseract progress is 0 to 1, scale it for our progress bar (e.g., from 10% to 70%)
+              const tesseractProgress = m.progress * 100; // Convert to percentage
+              updateProgressBar(10 + (tesseractProgress * 0.6)); // Scale to fit 10-70% range
+            } else if (m.status === 'loading language model') {
+              updateProgressBar(15);
+              extractionStatus.textContent = 'Loading language model...';
+            } else if (m.status === 'initializing api') {
+              updateProgressBar(20);
+              extractionStatus.textContent = 'Initializing OCR API...';
+            } else if (m.status === 'recognizing text') {
+               extractionStatus.textContent = 'Recognizing text in image...';
+            }
+          }
+        }
+      );
+
+      updateProgressBar(70); // OCR part done
+      extractionStatus.textContent = 'Analyzing extracted text...';
+      
+      // Store raw text for display (optional, could be the image itself or just the text)
+      // For now, let's store the text. displayRawExtractedText might need adjustment.
+      window.rawExtractedText = text; 
+      
+      processExtractedText(text);
+
+    } catch (error) {
+      console.error('Error during OCR processing:', error);
+      extractionStatus.textContent = 'Error during OCR. Please try another image or check console.';
+      updateProgressBar(0);
+    }
+  }
 });

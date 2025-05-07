@@ -10,27 +10,27 @@
     <div class="app-container">
         <!-- Left Panel: PDF Upload and Controls -->
         <div class="panel left-panel">
-            <h2>Upload Genealogy PDF</h2>
+            <h2>Upload Genealogy Image</h2>
             <div class="upload-container" id="upload-container">
                 <div class="upload-area" id="upload-area">
-                    <img src="/images/upload-icon.svg" alt="Upload" class="upload-icon" id="upload-icon">
-                    <p>Drag & drop your PDF here<br>or <span class="browse-text">browse files</span></p>
-                    <input type="file" id="pdf-upload" accept=".pdf" class="file-input" />
+                    <img src="/images/upload-icon.svg" alt="Upload Image/Screenshot" class="upload-icon" id="upload-icon">
+                    <p>Paste screenshot or <span class="browse-text">browse image</span></p>
+                    <input type="file" id="image-upload" accept="image/*" class="file-input" />
                 </div>
                 <div class="upload-preview" id="upload-preview">
                     <div class="pdf-upload-status">
                         <div class="pdf-icon">
-                            <img src="/images/pdf-icon.svg" alt="PDF" width="40" height="40">
+                            <img src="/images/pdf-icon.svg" alt="Image" width="40" height="40">
                         </div>
                         <div class="pdf-info">
-                            <div class="pdf-filename" id="pdf-filename">document.pdf</div>
+                            <div class="pdf-filename" id="image-filename">document.pdf</div>
                             <div class="progress-container">
                                 <div class="progress-bar" id="extraction-progress"></div>
                             </div>
                         </div>
                     </div>
-                    <div class="extraction-status" id="extraction-status">Waiting for PDF...</div>
-                    <button id="remove-pdf-btn" class="remove-pdf-button">Remove PDF</button>
+                    <div class="extraction-status" id="extraction-status">Waiting for Image...</div>
+                    <button id="remove-image-btn" class="remove-pdf-button">Remove Image</button>
                 </div>
             </div>
             
@@ -145,5 +145,6 @@
     </div>
 
     <script type="module" src="./main.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </body>
 </html>
