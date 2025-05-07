@@ -520,12 +520,12 @@ document.addEventListener('DOMContentLoaded', function() {
           const lines = person.raw.split(/\r?\n/).filter(line => line.trim() !== '');
           if (lines.length > 0) {
             // Try to extract the name and the rest of the first line
-            const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([^.,]+)([\s\S]*)/);
+            const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/);
             if (firstLineMatch) {
-              // number, name, rest of first line
+              // number is firstLineMatch[1]
               const name = firstLineMatch[2].trim();
-              const afterName = firstLineMatch[3] ? firstLineMatch[3] : '';
-              firstLine = `<b>${preserveHyperlinks(name)}</b>${preserveHyperlinks(afterName)}`;
+              const afterName = firstLineMatch[3] ? firstLineMatch[3].trim() : '';
+              firstLine = `<b>${preserveHyperlinks(name)}</b>${afterName ? ' ' + preserveHyperlinks(afterName) : ''}`;
             } else {
               firstLine = preserveHyperlinks(lines[0]);
             }
@@ -618,12 +618,13 @@ document.addEventListener('DOMContentLoaded', function() {
       if (person.raw) {
         const lines = person.raw.split(/\r?\n/).filter(line => line.trim() !== '');
         if (lines.length > 0) {
-          const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([^.,]+)([\s\S]*)/);
+          const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/);
           let firstLine = '';
           if (firstLineMatch) {
+            // number is firstLineMatch[1]
             const name = firstLineMatch[2].trim();
-            const afterName = firstLineMatch[3] ? firstLineMatch[3] : '';
-            firstLine = `<b>${preserveHyperlinks(name)}</b>${preserveHyperlinks(afterName)}`;
+            const afterName = firstLineMatch[3] ? firstLineMatch[3].trim() : '';
+            firstLine = `<b>${preserveHyperlinks(name)}</b>${afterName ? ' ' + preserveHyperlinks(afterName) : ''}`;
           } else {
             firstLine = preserveHyperlinks(lines[0]);
           }
