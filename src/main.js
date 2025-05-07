@@ -76,15 +76,26 @@ document.addEventListener('DOMContentLoaded', function() {
   const extractionStatus = document.getElementById('extraction-status');
   const dataPreview = document.getElementById('data-preview');
   const applyDataBtn = document.getElementById('apply-data-btn');
-  const removePdfBtn = document.getElementById('remove-image-btn');
+  const removeImageBtn = document.getElementById('remove-image-btn');
+  const extractDataBtn = document.getElementById('extract-data-btn');
+  const imagePreviewThumb = document.getElementById('image-preview-thumb');
 
-  // Handle remove PDF button click
-  removePdfBtn.addEventListener('click', function() {
+  let currentImageFile = null; // To store the currently loaded image file
+
+  // Handle remove Image button click
+  removeImageBtn.addEventListener('click', function() {
     // Clear the file input
     fileInput.value = '';
     
-    // Hide the upload preview
+    // Hide the upload preview and clear preview thumb
     uploadPreview.style.display = 'none';
+    if (imagePreviewThumb.src && imagePreviewThumb.src !== '#') {
+      URL.revokeObjectURL(imagePreviewThumb.src);
+    }
+    imagePreviewThumb.style.display = 'none';
+    imagePreviewThumb.src = '#';
+    document.getElementById('image-filename').style.display = 'block'; // Show filename field again
+    pdfFilename.textContent = 'document.pdf'; // Reset placeholder text
     
     // Reset progress bar
     extractionProgress.style.width = '0%';
@@ -95,11 +106,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear extracted data
     dataPreview.innerHTML = '<p class="no-data-message">No data extracted yet</p>';
     
-    // Disable apply button
+    // Disable apply button and hide extract button
     applyDataBtn.disabled = true;
+    extractDataBtn.style.display = 'none';
     
     // Clear any stored data
     window.parsedGenealogyData = null;
+    currentImageFile = null; // Clear stored file
     
     // Show the upload area again
     uploadArea.style.display = 'flex';
@@ -207,33 +220,54 @@ document.addEventListener('DOMContentLoaded', function() {
     const file = files[0];
     console.log('Processing file:', file.name, file.type);
     
-    // Check if the file is an Image
     if (!file.type.startsWith('image/')) {
       alert('Please upload an image file.');
       return;
     }
+
+    currentImageFile = file; // Store the file
     
-    // Hide upload area
+    // Show image preview
+    if (imagePreviewThumb.src && imagePreviewThumb.src !== '#') {
+      URL.revokeObjectURL(imagePreviewThumb.src); // Revoke old object URL if any
+    }
+    imagePreviewThumb.src = URL.createObjectURL(file);
+    imagePreviewThumb.style.display = 'block';
+    
+    // Hide upload area & show preview section
     uploadArea.style.display = 'none';
-    
-    // Show upload preview
     uploadPreview.style.display = 'block';
     
-    // Set filename
-    pdfFilename.textContent = file.name;
+    document.getElementById('image-filename').style.display = 'none'; // Hide the filename text
     
-    // Reset progress bar
-    extractionProgress.style.width = '0%';
+    extractionProgress.style.width = '0%'; // Reset progress bar
+    extractionStatus.textContent = 'Image loaded. Ready for extraction.'; // Update status
     
-    // Update extraction status
-    extractionStatus.textContent = 'Processing Image...';
+    applyDataBtn.disabled = true; // Ensure apply button is disabled until data is parsed
+    extractDataBtn.style.display = 'block'; // Show Extract Data button
+    removeImageBtn.style.display = 'inline-block'; // Ensure remove button is visible
     
-    // Start with initial progress
-    updateProgressBar(5);
-    
-    // Extract text from PDF
-    extractTextFromImageWithOCR(file);
+    // DO NOT automatically extract: extractTextFromImageWithOCR(file);
   }
+
+  // Add event listener for the new Extract Data button
+  extractDataBtn.addEventListener('click', function() {
+    if (currentImageFile) {
+      console.log('Extract Data button clicked for:', currentImageFile.name);
+      extractionStatus.textContent = 'Starting OCR process...';
+      extractDataBtn.disabled = true;
+      extractDataBtn.textContent = 'Extracting...';
+      removeImageBtn.disabled = true; // Disable remove button during extraction
+
+      extractTextFromImageWithOCR(currentImageFile).finally(() => {
+        // Re-enable buttons or update text after OCR is done (success or fail)
+        extractDataBtn.disabled = false;
+        extractDataBtn.textContent = 'Extract Data';
+        removeImageBtn.disabled = false;
+        // applyDataBtn will be enabled in displayParsedData if successful
+      });
+    }
+  });
 
   // Update progress bar
   function updateProgressBar(percent) {
@@ -685,6 +719,9 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
       extractionStatus.textContent = 'Preparing image for OCR...';
       updateProgressBar(10);
+      // Disable buttons during OCR - already handled by caller, but good for safety
+      extractDataBtn.disabled = true; 
+      removeImageBtn.disabled = true;
 
       const { data: { text } } = await Tesseract.recognize(
         imageFile,
@@ -712,8 +749,7 @@ document.addEventListener('DOMContentLoaded', function() {
       updateProgressBar(70); // OCR part done
       extractionStatus.textContent = 'Analyzing extracted text...';
       
-      // Store raw text for display (optional, could be the image itself or just the text)
-      // For now, let's store the text. displayRawExtractedText might need adjustment.
+      // Store raw text for display
       window.rawExtractedText = text; 
       
       processExtractedText(text);
@@ -722,6 +758,13 @@ document.addEventListener('DOMContentLoaded', function() {
       console.error('Error during OCR processing:', error);
       extractionStatus.textContent = 'Error during OCR. Please try another image or check console.';
       updateProgressBar(0);
+      // No specific data to parse on error, so apply button remains disabled.
+    } finally {
+      // Ensure buttons are re-enabled even if an unexpected error occurs within Tesseract.recognize not caught by its own try/catch
+      // This is also handled by the caller's finally block, providing a fallback.
+      extractDataBtn.disabled = false;
+      extractDataBtn.textContent = 'Extract Data';
+      removeImageBtn.disabled = false;
     }
   }
 });

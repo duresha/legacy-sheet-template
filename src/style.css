@@ -69,14 +69,9 @@
     border: 2px dashed #aaa;
     border-radius: 6px;
     margin: 15px;
-    cursor: pointer;
+    cursor: default;
     transition: all 0.3s ease;
     position: relative;
-}
-
-.upload-area:hover {
-    border-color: #2f3d22;
-    background-color: rgba(47, 61, 34, 0.05);
 }
 
 .upload-area.dragover {
@@ -657,6 +652,7 @@ a {
 /* PDF Upload Status Styles */
 .pdf-upload-status {
     display: flex;
+    flex-direction: column;
     align-items: center;
     background-color: #f8f9fa;
     border: 1px solid #e9ecef;
@@ -761,8 +757,23 @@ a {
 }
 
 .indented-paragraph {
-  margin-left: 32px;
-  text-indent: 0;
-  margin-top: 6px;
-  margin-bottom: 6px;
+    margin-left: 20px;
+    text-indent: -20px;
+    padding-left: 20px;
+}
+
+/* Styles for new image preview and extract button */
+#image-preview-thumb {
+    display: none;
+    width: 100%;
+    height: auto;
+    max-height: 350px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    margin-bottom: 15px;
+    object-fit: contain;
+}
+
+#extract-data-btn {
+    margin-bottom: 2px !important;
 }
