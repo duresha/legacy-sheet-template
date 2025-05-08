@@ -18,9 +18,9 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: path.resolve(__dirname, 'node_modules/pdfjs-dist/build/pdf.worker.js'),
+          src: '../node_modules/pdfjs-dist/build/pdf.worker.mjs',
           dest: '',
-          rename: 'pdf.worker.min.js'
+          rename: 'pdf.worker.min.mjs'
         }
       ]
     })

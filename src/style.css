@@ -756,10 +756,10 @@ a {
     margin-bottom: 10px;
 }
 
-.indented-paragraph {
-    margin-left: 20px;
-    text-indent: -20px;
-    padding-left: 20px;
+.person-content > .indented-paragraph {
+    margin-left: 40px;   /* Increased for more pronounced indent, matching children list */
+    margin-top: 1.5em;    /* Increased for one full line-height of spacing */
+    display: block;       /* Explicitly ensure block behavior */
 }
 
 /* Styles for new image preview and extract button */

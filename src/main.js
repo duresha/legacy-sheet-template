@@ -6,7 +6,7 @@ import { saveAs } from 'file-saver';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure the PDF.js worker to use a local file
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.min.mjs', import.meta.url).href;
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.min.mjs', import.meta.url).toString();
 
 document.addEventListener('DOMContentLoaded', function() {
   console.log('Legacy Sheet Template loaded successfully');
@@ -513,33 +513,82 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Persons
       parsedData.persons.forEach(person => {
-        // Split the first line into bold name and normal text
-        let firstLine = '';
-        let restLines = '';
+        let detailsHtml = '';
+        let nameForHeader = preserveHyperlinks(person.name || '');
+
         if (person.raw) {
-          const lines = person.raw.split(/\r?\n/).filter(line => line.trim() !== '');
-          if (lines.length > 0) {
-            // Try to extract the name and the rest of the first line
-            const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/);
-            if (firstLineMatch) {
-              // number is firstLineMatch[1]
-              const name = firstLineMatch[2].trim();
-              const afterName = firstLineMatch[3] ? firstLineMatch[3].trim() : '';
-              firstLine = `<b>${preserveHyperlinks(name)}</b>${afterName ? ' ' + preserveHyperlinks(afterName) : ''}`;
-            } else {
-              firstLine = preserveHyperlinks(lines[0]);
+          const rawLines = person.raw.split(/\\r?\\n/);
+          let firstMeaningfulLineText = '';
+          let firstMeaningfulLineIndex = -1;
+
+          for (let i = 0; i < rawLines.length; i++) {
+            if (rawLines[i].trim() !== '') {
+              firstMeaningfulLineText = rawLines[i];
+              firstMeaningfulLineIndex = i;
+              break;
             }
-            restLines = lines.slice(1).map(l => `<div class='indented-paragraph'>${preserveHyperlinks(l)}</div>`).join('');
           }
+
+          if (firstMeaningfulLineText) {
+            // Try to extract name and bio from the first meaningful line for preview
+            // This regex is similar to the one in applyDataBtn but adapted for preview
+            const nameAndBioMatch = firstMeaningfulLineText.match(/^(?:\\d{1,4}\\.\\s*)?([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\\S]*)/);
+            let currentParagraphPreview = '';
+
+            if (nameAndBioMatch) {
+              const extractedName = nameAndBioMatch[1].trim();
+              const afterNameText = nameAndBioMatch[2] ? nameAndBioMatch[2].trim() : '';
+              currentParagraphPreview = `<b>${preserveHyperlinks(extractedName)}</b>${afterNameText ? ' ' + preserveHyperlinks(afterNameText) : ''}`;
+              if (!person.name) nameForHeader = preserveHyperlinks(extractedName); // Update header name if not already set
+            } else {
+              // Fallback: use the raw line, ensure person.name (if exists) is bolded if it's at the start
+              if (person.name && firstMeaningfulLineText.startsWith(person.name)) {
+                currentParagraphPreview = `<b>${preserveHyperlinks(person.name)}</b>${preserveHyperlinks(firstMeaningfulLineText.substring(person.name.length))}`;
+              } else {
+                currentParagraphPreview = preserveHyperlinks(firstMeaningfulLineText);
+              }
+            }
+
+            // Add a few more lines of this first paragraph for context, joined by <br>
+            let linesInCurrentPara = 0;
+            for (let i = firstMeaningfulLineIndex + 1; i < rawLines.length && linesInCurrentPara < 2; i++) {
+              if (rawLines[i].trim() === '') break; // Stop if empty line (new paragraph signal)
+              currentParagraphPreview += '<br>' + preserveHyperlinks(rawLines[i]);
+              linesInCurrentPara++;
+            }
+            detailsHtml += `<div>${currentParagraphPreview}</div>`;
+
+            // Check for a subsequent distinct paragraph for a small preview
+            let nextParaStartIndex = firstMeaningfulLineIndex + linesInCurrentPara + 1;
+            while (nextParaStartIndex < rawLines.length && rawLines[nextParaStartIndex].trim() === '') {
+              nextParaStartIndex++; // Skip empty lines
+            }
+
+            if (nextParaStartIndex < rawLines.length) {
+              // Show a snippet of the next paragraph (e.g., first few words)
+              const nextParaSnippet = preserveHyperlinks(rawLines[nextParaStartIndex].split(' ').slice(0, 10).join(' ')) + (rawLines[nextParaStartIndex].split(' ').length > 10 || rawLines.length > nextParaStartIndex + 1 ? '...' : '');
+              detailsHtml += `<div style="margin-left: 15px; margin-top: 0.5em; font-style: italic; color: #555;">${nextParaSnippet}</div>`;
+            }
+
+          } else if (person.name) { // Fallback if raw line processing fails but name exists
+            detailsHtml = `<div><b>${nameForHeader}</b></div>`;
+          } else {
+            detailsHtml = '<div>No displayable content.</div>';
+          }
+        } else if (person.name) { // Fallback if no person.raw but name exists
+          detailsHtml = `<div><b>${nameForHeader}</b></div>`;
+        } else {
+          detailsHtml = '<div>No data available for this person.</div>';
         }
+
         html += `
           <div class="parsed-person">
             <div class="parsed-person-header">
               <span class="parsed-person-number">${person.number}</span>
+              <span class="parsed-person-name" style="margin-left: 8px; font-weight:bold;">${nameForHeader}</span>
             </div>
             <div class="parsed-person-details">
-              <div>${firstLine}</div>
-              ${restLines}
+              ${detailsHtml}
             </div>
           </div>
         `;
@@ -614,29 +663,92 @@ document.addEventListener('DOMContentLoaded', function() {
       const personContent = document.createElement('div');
       personContent.className = 'person-content';
 
-      // Split the first line into bold name and normal text
+      // Process person.raw for main and subsequent paragraphs
       if (person.raw) {
-        const lines = person.raw.split(/\r?\n/).filter(line => line.trim() !== '');
-        if (lines.length > 0) {
-          const firstLineMatch = lines[0].match(/^(\d{1,4})\.\s*([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/);
-          let firstLine = '';
-          if (firstLineMatch) {
-            // number is firstLineMatch[1]
-            const name = firstLineMatch[2].trim();
-            const afterName = firstLineMatch[3] ? firstLineMatch[3].trim() : '';
-            firstLine = `<b>${preserveHyperlinks(name)}</b>${afterName ? ' ' + preserveHyperlinks(afterName) : ''}`;
+        const rawLines = person.raw.split(/\r?\n/); // Keep empty lines for now
+        let lineIndex = 0;
+
+        // Find the first non-empty line for the main biographical entry
+        while (lineIndex < rawLines.length && rawLines[lineIndex].trim() === '') {
+          lineIndex++;
+        }
+
+        if (lineIndex < rawLines.length) {
+          // The first line of actual content, which includes the number, name, and start of bio
+          // The number itself is handled by personNumber div, so we focus on name and bio from person.raw
+          // The existing regex extracts name and the rest of first line:
+          // /^(\d{1,4})\.\s*([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/
+          // We need to reconstruct the first line of text, bolding the name.
+
+          const firstContentLineText = rawLines[lineIndex];
+          const nameAndBioMatch = firstContentLineText.match(/^(?:\d{1,4}\.\s*)?([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/);
+          
+          let mainParagraphHTML = '';
+          if (nameAndBioMatch) {
+            const name = nameAndBioMatch[1].trim();
+            const afterName = nameAndBioMatch[2] ? nameAndBioMatch[2].trim() : '';
+            mainParagraphHTML = `<b>${preserveHyperlinks(name)}</b>${afterName ? ' ' + preserveHyperlinks(afterName) : ''}`;
           } else {
-            firstLine = preserveHyperlinks(lines[0]);
+            // Fallback if regex doesn't match (e.g. no clear name pattern on the first line)
+            mainParagraphHTML = preserveHyperlinks(firstContentLineText);
           }
-          const firstLineDiv = document.createElement('div');
-          firstLineDiv.innerHTML = firstLine;
-          personContent.appendChild(firstLineDiv);
-          // Indent subsequent paragraphs
-          for (let i = 1; i < lines.length; i++) {
-            const paraDiv = document.createElement('div');
-            paraDiv.className = 'indented-paragraph';
-            paraDiv.innerHTML = preserveHyperlinks(lines[i]);
-            personContent.appendChild(paraDiv);
+          lineIndex++; // Move to the line AFTER the first content line
+
+          // Continue adding subsequent lines to the main paragraph
+          // until an empty line, end of lines, or a marriage indicator line.
+          while (lineIndex < rawLines.length) {
+            const currentRawLine = rawLines[lineIndex];
+            const currentLineTrimmed = currentRawLine.trim();
+
+            if (currentLineTrimmed === '') {
+              // Empty line signifies the end of the main paragraph.
+              // The subsequent paragraph processing logic will handle skipping this empty line.
+              break;
+            }
+
+            // Define a regex to check for marriage indicators at the start of a trimmed line.
+            // It looks for patterns like: "FirstName married", "Married", "He married", "She married".
+            const firstName = person.name ? person.name.split(' ')[0] : '[A-ZÅÄÖÜ][a-zåäöü\'-]+'; // Use person's first name or a general pattern
+            const marriageIndicatorRegex = new RegExp(
+              `^(${firstName}\\s+married\\b|Married\\b|(He|She)\\s+married\\b)`, 'i'
+            );
+
+            if (marriageIndicatorRegex.test(currentLineTrimmed)) {
+              // This line appears to start marriage details. Stop the main paragraph here.
+              // lineIndex will remain pointing at this line, allowing the subsequent
+              // paragraph processing logic to pick it up as an indented paragraph.
+              break;
+            }
+
+            mainParagraphHTML += (mainParagraphHTML ? '<br>' : '') + preserveHyperlinks(currentRawLine);
+            lineIndex++;
+          }
+
+          const mainParagraphDiv = document.createElement('div');
+          mainParagraphDiv.innerHTML = mainParagraphHTML;
+          personContent.appendChild(mainParagraphDiv);
+
+          // Process subsequent distinct paragraphs (indented)
+          while (lineIndex < rawLines.length) {
+            // Skip any further empty lines between paragraphs
+            while (lineIndex < rawLines.length && rawLines[lineIndex].trim() === '') {
+              lineIndex++;
+            }
+
+            if (lineIndex < rawLines.length) {
+              // Start of a new subsequent paragraph
+              let subsequentParagraphHTML = preserveHyperlinks(rawLines[lineIndex]);
+              lineIndex++;
+              // Continue adding lines to this subsequent paragraph until an empty line or end
+              while (lineIndex < rawLines.length && rawLines[lineIndex].trim() !== '') {
+                subsequentParagraphHTML += '<br>' + preserveHyperlinks(rawLines[lineIndex]);
+                lineIndex++;
+              }
+              const paraDiv = document.createElement('div');
+              paraDiv.className = 'indented-paragraph';
+              paraDiv.innerHTML = subsequentParagraphHTML;
+              personContent.appendChild(paraDiv);
+            }
           }
         }
       }
