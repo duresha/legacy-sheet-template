@@ -10,42 +10,49 @@
     <div class="app-container">
         <!-- Left Panel: PDF Upload and Controls -->
         <div class="panel left-panel">
-            <h2>Upload Genealogy Image</h2>
-            <div class="upload-container" id="upload-container">
-                <div class="upload-area" id="upload-area">
-                    <img src="/images/upload-icon.svg" alt="Upload Image/Screenshot" class="upload-icon" id="upload-icon">
-                    <p>Paste screenshot or <span class="browse-text">browse image</span></p>
-                    <input type="file" id="image-upload" accept="image/*" class="file-input" />
-                </div>
-                <div class="upload-preview" id="upload-preview">
-                    <div class="pdf-upload-status">
-                        <img id="image-preview-thumb" src="#" alt="Image Preview" style="display: none; max-width: 150px; max-height: 150px; border-radius: 8px; margin: 0 auto 10px auto; border: 1px solid #ddd;">
-                        <div class="pdf-info" id="image-info-container">
-                            <div class="pdf-filename" id="image-filename">document.pdf</div>
+            <div class="left-panel-main-content">
+                <h2>Upload Genealogy Image</h2>
+                <div class="upload-container" id="upload-container">
+                    <div class="upload-area" id="upload-area">
+                        <img src="/images/upload-icon.svg" alt="Upload Image/Screenshot" class="upload-icon" id="upload-icon">
+                        <p>Paste screenshot or <span class="browse-text">browse image</span></p>
+                        <input type="file" id="image-upload" accept="image/*" class="file-input" />
+                    </div>
+                    <div class="upload-preview" id="upload-preview">
+                        <div class="pdf-upload-status">
+                            <img id="image-preview-thumb" src="#" alt="Image Preview" style="display: none; max-width: 150px; max-height: 150px; border-radius: 8px; margin: 0 auto 10px auto; border: 1px solid #ddd;">
+                            <div class="pdf-info" id="image-info-container">
+                                <div class="pdf-filename" id="image-filename">document.pdf</div>
+                            </div>
                         </div>
+                        <div class="progress-container" style="margin-top: 15px;">
+                            <div class="progress-bar" id="extraction-progress"></div>
+                        </div>
+                        <div class="extraction-status" id="extraction-status" style="margin-top: 10px; margin-bottom:15px;">Waiting for Image...</div>
+                        
+                        <button id="extract-data-btn" class="action-button" style="display: none; margin-bottom: 10px;">Extract Data</button>
+                        <button id="remove-image-btn" class="remove-pdf-button">Remove Image</button>
                     </div>
-                    <div class="progress-container" style="margin-top: 15px;">
-                        <div class="progress-bar" id="extraction-progress"></div>
+                </div>
+                
+                <div class="extracted-data-container" id="extracted-data-container">
+                    <h3>Extracted Data</h3>
+                    <div class="view-toggle">
+                        <button id="raw-view-btn" class="view-toggle-btn active">Raw Text</button>
+                        <button id="parsed-view-btn" class="view-toggle-btn">Parsed Data</button>
                     </div>
-                    <div class="extraction-status" id="extraction-status" style="margin-top: 10px; margin-bottom:15px;">Waiting for Image...</div>
-                    
-                    <button id="extract-data-btn" class="action-button" style="display: none; margin-bottom: 10px;">Extract Data</button>
-                    <button id="remove-image-btn" class="remove-pdf-button">Remove Image</button>
+                    <div class="data-preview" id="data-preview">
+                        <p class="no-data-message">No data extracted yet</p>
+                    </div>
+                    <button id="apply-data-btn" class="action-button" disabled>Apply to Template</button>
+                    <button id="unapply-data-btn" class="action-button unapply-button" style="display: none;">Revert to Original Template</button>
                 </div>
             </div>
             
-            <div class="extracted-data-container" id="extracted-data-container">
-                <h3>Extracted Data</h3>
-                <div class="view-toggle">
-                    <button id="raw-view-btn" class="view-toggle-btn active">Raw Text</button>
-                    <button id="parsed-view-btn" class="view-toggle-btn">Parsed Data</button>
-                </div>
-                <div class="data-preview" id="data-preview">
-                    <p class="no-data-message">No data extracted yet</p>
-                </div>
-                <button id="apply-data-btn" class="action-button" disabled>Apply to Template</button>
-                <button id="unapply-data-btn" class="action-button unapply-button" style="display: none;">Revert to Original Template</button>
-            </div>
+            <button id="save-pdf-btn" class="save-pdf-button">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15.01l1.41 1.41L11 14.83V19h2v-4.17l1.59 1.59L16 15.01 12.01 11z"/></svg>
+                Save PDF
+            </button>
         </div>
         
         <!-- Right Panel: Legacy Sheet Template -->
@@ -137,11 +144,6 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- Action buttons -->
-    <div class="action-buttons">
-        <button id="save-pdf-btn" class="save-pdf-button">Save PDF</button>
     </div>
 
     <script type="module" src="./main.js"></script>

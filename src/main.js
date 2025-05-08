@@ -642,10 +642,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const existingEntries = legacySheet.querySelectorAll('.person-entry');
     const horizontalRule = document.querySelector('.horizontal-rule');
 
-    // Remove all person entries but keep the first horizontal rule
+    // Remove all person entries and their dynamically added dividers
     existingEntries.forEach(entry => {
-      entry.nextElementSibling?.remove(); // Remove divider if present
-      entry.remove();
+      const nextSibling = entry.nextElementSibling;
+      // Only remove the next sibling if it's NOT part of the main footer structure
+      if (nextSibling && !nextSibling.classList.contains('footer-line') && !nextSibling.classList.contains('footer')) {
+        nextSibling.remove();
+      }
+      entry.remove(); // Removes the .person-entry
     });
 
     // Create new person entries
@@ -757,14 +761,15 @@ document.addEventListener('DOMContentLoaded', function() {
       personEntry.appendChild(personNumber);
       personEntry.appendChild(personContent);
 
-      // Add to the document
-      legacySheet.insertBefore(personEntry, document.querySelector('.footer-line'));
+      // Add to the document, inserting before the main footer text container
+      legacySheet.insertBefore(personEntry, document.querySelector('.footer'));
 
       // Add divider after each person (except the last one)
       if (index < data.persons.length - 1) {
         const divider = document.createElement('hr');
         divider.className = 'entry-divider';
-        legacySheet.insertBefore(divider, document.querySelector('.footer-line'));
+        // Insert divider also before the main footer text container
+        legacySheet.insertBefore(divider, document.querySelector('.footer'));
       }
     });
 

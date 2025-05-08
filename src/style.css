@@ -35,6 +35,8 @@
     border-radius: 16px;
     height: calc(100vh - 40px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
 }
 
 .right-panel {
@@ -207,8 +209,8 @@ body {
     height: 11in;
     background: white;
     margin: 0 auto;
-    /* Corrected bottom padding to be exactly 0.123in from the bottom */
-    padding: 0.75in 0.536in 0.123in 0.451in; /* top right bottom left */
+    /* Adjusted bottom padding to reserve space for the footer */
+    padding: 0.75in 0.536in 0.6in 0.451in; /* top right bottom left - bottom increased */
     box-sizing: border-box;
     position: relative;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
@@ -259,11 +261,11 @@ body {
     background: transparent; /* No fill color */
     color: #a85733; /* Text color as specified */
     text-align: center;
-    border: 6px solid #a85733; /* Border/outline as specified */
+    border: 5px solid #a85733; /* Border/outline as specified */
     border-radius: 18px; /* Corner rounding as specified */
     font-family: 'Nunito Sans', sans-serif; /* Better alternative to Canva Sans */
-    font-size: 13px; /* Font size as specified */
-    font-weight: bold;
+    font-size: 12px; /* Font size as specified */
+    font-weight: normal;
     margin-right: 12px;
      margin-top: 3px; /* Align with the top of the entry */
     flex-shrink: 0;
@@ -405,18 +407,21 @@ a {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: calc(8.5in - 0.451in - 0.536in); /* Full width minus left and right padding */
+    width: calc(8.5in - 0.451in - 0.536in);
+    z-index: 10; /* Ensure footer text is above other content, but below footer-line */
+    /* background-color: white; */ /* Temporarily removed for testing */
 }
 
 .footer-line {
     position: absolute;
-    bottom: 0.4in; /* 0.123in bottom + 0.147in specified spacing */
-    left: 0.827in; /* Left margin as specified */
-    right: 1.059in; /* Right margin as specified */
+    bottom: 0.4in; 
+    left: 0.827in; 
+    right: 1.059in; 
     height: 2px;
     background-color: #2f3d22;
-    width: 6.6in; /* Width of 6.6 inches as specified */
+    width: 6.6in; 
     margin: 0;
+    z-index: 11; /* Ensure footer line is above .footer background and other content */
 }
 
 .report-name {
@@ -438,34 +443,40 @@ a {
 }
 
 /* Save PDF Button */
+/* Former .action-buttons styling - removed as button is now in .left-panel */
+/*
 .action-buttons {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    z-index: 9999; /* Ensure it appears above all other content */
+    z-index: 9999; 
 }
+*/
 
 .save-pdf-button {
-    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 12px 20px;
     background-color: #0052cc;
     color: white;
     border: 1px solid #003d99;
-    border-radius: 4px;
+    border-radius: 6px;
     font-family: 'Public Sans', sans-serif;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    transition: background-color 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    margin-top: 20px;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 .save-pdf-button:hover {
     background-color: #0066ff;
-}
-
-.save-pdf-button:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 .remove-pdf-button {
@@ -780,4 +791,18 @@ a {
 
 #extract-data-btn {
     margin-bottom: 2px !important;
+}
+
+/* New rule for the content wrapper inside left-panel */
+.left-panel-main-content {
+    flex-grow: 1; /* Allows this area to take up available space */
+    overflow-y: auto; /* Makes this area scrollable if content exceeds space */
+    /* Padding is inherited from .left-panel (which has .panel class) */
+}
+
+/* Hyperlink Styles */
+.child-name a {
+    text-decoration: none;
+    color: inherit;
+    font-weight: inherit;
 }
