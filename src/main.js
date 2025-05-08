@@ -720,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function() {
               break;
             }
 
-            mainParagraphHTML += (mainParagraphHTML ? '<br>' : '') + preserveHyperlinks(currentRawLine);
+            mainParagraphHTML += ' ' + preserveHyperlinks(currentRawLine.trim());
             lineIndex++;
           }
 
@@ -737,11 +737,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (lineIndex < rawLines.length) {
               // Start of a new subsequent paragraph
-              let subsequentParagraphHTML = preserveHyperlinks(rawLines[lineIndex]);
+              let subsequentParagraphHTML = preserveHyperlinks(rawLines[lineIndex].trim());
               lineIndex++;
               // Continue adding lines to this subsequent paragraph until an empty line or end
               while (lineIndex < rawLines.length && rawLines[lineIndex].trim() !== '') {
-                subsequentParagraphHTML += '<br>' + preserveHyperlinks(rawLines[lineIndex]);
+                subsequentParagraphHTML += ' ' + preserveHyperlinks(rawLines[lineIndex].trim());
                 lineIndex++;
               }
               const paraDiv = document.createElement('div');
