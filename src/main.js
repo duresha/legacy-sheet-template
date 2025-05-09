@@ -88,8 +88,9 @@ document.addEventListener('DOMContentLoaded', function() {
   nextPersonBtn.id = 'next-person-btn';
   nextPersonBtn.className = 'action-button primary-button';
   nextPersonBtn.textContent = 'Next Person Entry';
-  nextPersonBtn.style.marginLeft = '10px';
+  nextPersonBtn.style.marginLeft = '0'; // Remove left margin to align with the button above
   nextPersonBtn.style.display = 'none'; // Initially hidden
+  nextPersonBtn.style.width = '100%'; // Make it full width like the Apply button
   
   // Insert Next Person button after the Apply button
   applyDataBtn.parentNode.insertBefore(nextPersonBtn, applyDataBtn.nextSibling);
@@ -305,30 +306,33 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('image-filename').style.display = 'none'; // Hide the filename text
     
     extractionProgress.style.width = '0%'; // Reset progress bar
-    extractionStatus.textContent = 'Image loaded. Ready for extraction.'; // Update status
+    extractionStatus.textContent = 'Starting OCR process...'; // Update status
     
     applyDataBtn.disabled = true; // Ensure apply button is disabled until data is parsed
-    extractDataBtn.style.display = 'block'; // Show Extract Data button
+    extractDataBtn.style.display = 'none'; // Hide Extract Data button since we're auto-extracting
     removeImageBtn.style.display = 'inline-block'; // Ensure remove button is visible
     
-    // DO NOT automatically extract: extractTextFromImageWithOCR(file);
+    // Start OCR extraction automatically
+    extractTextFromImageWithOCR(file).catch(err => {
+      console.error('Error during auto OCR extraction:', err);
+      extractionStatus.textContent = 'Error during OCR. Please try another image.';
+      removeImageBtn.disabled = false;
+    });
   }
 
-  // Add event listener for the new Extract Data button
+  // We don't need this event listener anymore since extraction happens automatically
+  // But keep the button defined for backward compatibility
   extractDataBtn.addEventListener('click', function() {
     if (currentImageFile) {
-      console.log('Extract Data button clicked for:', currentImageFile.name);
       extractionStatus.textContent = 'Starting OCR process...';
       extractDataBtn.disabled = true;
       extractDataBtn.textContent = 'Extracting...';
       removeImageBtn.disabled = true; // Disable remove button during extraction
 
       extractTextFromImageWithOCR(currentImageFile).finally(() => {
-        // Re-enable buttons or update text after OCR is done (success or fail)
         extractDataBtn.disabled = false;
         extractDataBtn.textContent = 'Extract Data';
         removeImageBtn.disabled = false;
-        // applyDataBtn will be enabled in displayParsedData if successful
       });
     }
   });
