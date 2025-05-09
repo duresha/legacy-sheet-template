@@ -82,6 +82,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Track if we've already cleared the static template
   let staticTemplateCleared = false;
+  
+  // Track if the current data has already been applied
+  let currentDataApplied = false;
 
   // Create Next Person Entry button
   const nextPersonBtn = document.createElement('button');
@@ -91,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
   nextPersonBtn.style.marginLeft = '0'; // Remove left margin to align with the button above
   nextPersonBtn.style.display = 'none'; // Initially hidden
   nextPersonBtn.style.width = '100%'; // Make it full width like the Apply button
+  nextPersonBtn.style.marginTop = '20px'; // Add top margin to prevent overlap with toggle buttons
   
   // Insert Next Person button after the Apply button
   applyDataBtn.parentNode.insertBefore(nextPersonBtn, applyDataBtn.nextSibling);
@@ -125,16 +129,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Clear extracted data
     dataPreview.innerHTML = '<p class="no-data-message">No data extracted yet</p>';
     
-    // Reset button states
-    applyDataBtn.disabled = true;
-    applyDataBtn.textContent = 'Apply to Template';
-    applyDataBtn.classList.remove('applied-button');
+    // Reset button states (Apply button is now hidden)
     extractDataBtn.style.display = 'none';
     nextPersonBtn.style.display = 'none'; // Hide Next Person button
     
     // Clear any stored data for the side panel
     window.parsedGenealogyData = null;
     currentImageFile = null; // Clear stored file
+    
+    // Reset the applied flag
+    currentDataApplied = false;
     
     // Show the upload area again
     uploadArea.style.display = 'flex';
@@ -500,6 +504,105 @@ document.addEventListener('DOMContentLoaded', function() {
     displayParsedData(parsedData);
   }
 
+  // Display parsed data without triggering application (for tab switching)
+  function displayParsedDataForTabSwitch(parsedData) {
+    if (!parsedData || !parsedData.persons || parsedData.persons.length === 0) {
+      dataPreview.innerHTML = '<p class="no-data-message">No genealogy data could be extracted. Please try another file or format.</p>';
+      return;
+    }
+
+    let html = '';
+
+    // Generation title
+    if (parsedData.generation) {
+      html += `<div class="parsed-item"><strong>Generation:</strong> ${parsedData.generation}</div>`;
+    }
+
+    // Persons
+    parsedData.persons.forEach(person => {
+      let detailsHtml = '';
+      let nameForHeader = preserveHyperlinks(person.name || '');
+
+      if (person.raw) {
+        const rawLines = person.raw.split(/\\r?\\n/);
+        let firstMeaningfulLineText = '';
+        let firstMeaningfulLineIndex = -1;
+
+        for (let i = 0; i < rawLines.length; i++) {
+          if (rawLines[i].trim() !== '') {
+            firstMeaningfulLineText = rawLines[i];
+            firstMeaningfulLineIndex = i;
+            break;
+          }
+        }
+
+        if (firstMeaningfulLineText) {
+          // Try to extract name and bio from the first meaningful line for preview
+          const nameAndBioMatch = firstMeaningfulLineText.match(/^(?:\\d{1,4}\\.\\s*)?([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\\S]*)/);
+          let currentParagraphPreview = '';
+
+          if (nameAndBioMatch) {
+            const extractedName = nameAndBioMatch[1].trim();
+            const afterNameText = nameAndBioMatch[2] ? nameAndBioMatch[2].trim() : '';
+            currentParagraphPreview = `<b>${preserveHyperlinks(extractedName)}</b>${afterNameText ? ' ' + preserveHyperlinks(afterNameText) : ''}`;
+            if (!person.name) nameForHeader = preserveHyperlinks(extractedName); // Update header name if not already set
+          } else {
+            if (person.name && firstMeaningfulLineText.startsWith(person.name)) {
+              currentParagraphPreview = `<b>${preserveHyperlinks(person.name)}</b>${preserveHyperlinks(firstMeaningfulLineText.substring(person.name.length))}`;
+            } else {
+              currentParagraphPreview = preserveHyperlinks(firstMeaningfulLineText);
+            }
+          }
+
+          // Add a few more lines of this first paragraph for context, joined by <br>
+          let linesInCurrentPara = 0;
+          for (let i = firstMeaningfulLineIndex + 1; i < rawLines.length && linesInCurrentPara < 2; i++) {
+            if (rawLines[i].trim() === '') break; // Stop if empty line (new paragraph signal)
+            currentParagraphPreview += '<br>' + preserveHyperlinks(rawLines[i]);
+            linesInCurrentPara++;
+          }
+          detailsHtml += `<div>${currentParagraphPreview}</div>`;
+
+          // Check for a subsequent distinct paragraph for a small preview
+          let nextParaStartIndex = firstMeaningfulLineIndex + linesInCurrentPara + 1;
+          while (nextParaStartIndex < rawLines.length && rawLines[nextParaStartIndex].trim() === '') {
+            nextParaStartIndex++; // Skip empty lines
+          }
+
+          if (nextParaStartIndex < rawLines.length) {
+            // Show a snippet of the next paragraph (e.g., first few words)
+            const nextParaSnippet = preserveHyperlinks(rawLines[nextParaStartIndex].split(' ').slice(0, 10).join(' ')) + (rawLines[nextParaStartIndex].split(' ').length > 10 || rawLines.length > nextParaStartIndex + 1 ? '...' : '');
+            detailsHtml += `<div style="margin-left: 15px; margin-top: 0.5em; font-style: italic; color: #555;">${nextParaSnippet}</div>`;
+          }
+
+        } else if (person.name) { // Fallback if raw line processing fails but name exists
+          detailsHtml = `<div><b>${nameForHeader}</b></div>`;
+        } else {
+          detailsHtml = '<div>No displayable content.</div>';
+        }
+      } else if (person.name) { // Fallback if no person.raw but name exists
+        detailsHtml = `<div><b>${nameForHeader}</b></div>`;
+      } else {
+        detailsHtml = '<div>No data available for this person.</div>';
+      }
+
+      html += `
+        <div class="parsed-person">
+          <div class="parsed-person-header">
+            <span class="parsed-person-number">${person.number}</span>
+            <span class="parsed-person-name" style="margin-left: 8px; font-weight:bold;">${nameForHeader}</span>
+          </div>
+          <div class="parsed-person-details">
+            ${detailsHtml}
+          </div>
+        </div>
+      `;
+    });
+
+    // Update the data preview
+    dataPreview.innerHTML = html;
+  }
+
   // Add view toggle functionality
   const rawViewBtn = document.getElementById('raw-view-btn');
   const parsedViewBtn = document.getElementById('parsed-view-btn');
@@ -514,7 +617,8 @@ document.addEventListener('DOMContentLoaded', function() {
     parsedViewBtn.classList.add('active');
     rawViewBtn.classList.remove('active');
     if (window.parsedGenealogyData) {
-      displayParsedData(window.parsedGenealogyData);
+      // Use the tab-switch version that doesn't trigger application
+      displayParsedDataForTabSwitch(window.parsedGenealogyData);
     }
   });
 
@@ -557,6 +661,11 @@ document.addEventListener('DOMContentLoaded', function() {
     dataPreview.innerHTML = html;
   }
 
+  // Hide the Apply to Template button since we've automated the process
+  if (applyDataBtn) {
+    applyDataBtn.style.display = 'none';
+  }
+
   // Modify the existing displayParsedData function to handle view state
   function displayParsedData(parsedData) {
     if (!parsedData.persons || parsedData.persons.length === 0) {
@@ -572,124 +681,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Only update the display if we're in parsed view
     if (parsedViewBtn.classList.contains('active')) {
-      let html = '';
-
-      // Generation title
-      if (parsedData.generation) {
-        html += `<div class="parsed-item"><strong>Generation:</strong> ${parsedData.generation}</div>`;
-      }
-
-      // Persons
-      parsedData.persons.forEach(person => {
-        let detailsHtml = '';
-        let nameForHeader = preserveHyperlinks(person.name || '');
-
-        if (person.raw) {
-          const rawLines = person.raw.split(/\\r?\\n/);
-          let firstMeaningfulLineText = '';
-          let firstMeaningfulLineIndex = -1;
-
-          for (let i = 0; i < rawLines.length; i++) {
-            if (rawLines[i].trim() !== '') {
-              firstMeaningfulLineText = rawLines[i];
-              firstMeaningfulLineIndex = i;
-              break;
-            }
-          }
-
-          if (firstMeaningfulLineText) {
-            // Try to extract name and bio from the first meaningful line for preview
-            // This regex is similar to the one in applyDataBtn but adapted for preview
-            const nameAndBioMatch = firstMeaningfulLineText.match(/^(?:\\d{1,4}\\.\\s*)?([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\\S]*)/);
-            let currentParagraphPreview = '';
-
-            if (nameAndBioMatch) {
-              const extractedName = nameAndBioMatch[1].trim();
-              const afterNameText = nameAndBioMatch[2] ? nameAndBioMatch[2].trim() : '';
-              currentParagraphPreview = `<b>${preserveHyperlinks(extractedName)}</b>${afterNameText ? ' ' + preserveHyperlinks(afterNameText) : ''}`;
-              if (!person.name) nameForHeader = preserveHyperlinks(extractedName); // Update header name if not already set
-            } else {
-              // Fallback: use the raw line, ensure person.name (if exists) is bolded if it's at the start
-              if (person.name && firstMeaningfulLineText.startsWith(person.name)) {
-                currentParagraphPreview = `<b>${preserveHyperlinks(person.name)}</b>${preserveHyperlinks(firstMeaningfulLineText.substring(person.name.length))}`;
-              } else {
-                currentParagraphPreview = preserveHyperlinks(firstMeaningfulLineText);
-              }
-            }
-
-            // Add a few more lines of this first paragraph for context, joined by <br>
-            let linesInCurrentPara = 0;
-            for (let i = firstMeaningfulLineIndex + 1; i < rawLines.length && linesInCurrentPara < 2; i++) {
-              if (rawLines[i].trim() === '') break; // Stop if empty line (new paragraph signal)
-              currentParagraphPreview += '<br>' + preserveHyperlinks(rawLines[i]);
-              linesInCurrentPara++;
-            }
-            detailsHtml += `<div>${currentParagraphPreview}</div>`;
-
-            // Check for a subsequent distinct paragraph for a small preview
-            let nextParaStartIndex = firstMeaningfulLineIndex + linesInCurrentPara + 1;
-            while (nextParaStartIndex < rawLines.length && rawLines[nextParaStartIndex].trim() === '') {
-              nextParaStartIndex++; // Skip empty lines
-            }
-
-            if (nextParaStartIndex < rawLines.length) {
-              // Show a snippet of the next paragraph (e.g., first few words)
-              const nextParaSnippet = preserveHyperlinks(rawLines[nextParaStartIndex].split(' ').slice(0, 10).join(' ')) + (rawLines[nextParaStartIndex].split(' ').length > 10 || rawLines.length > nextParaStartIndex + 1 ? '...' : '');
-              detailsHtml += `<div style="margin-left: 15px; margin-top: 0.5em; font-style: italic; color: #555;">${nextParaSnippet}</div>`;
-            }
-
-          } else if (person.name) { // Fallback if raw line processing fails but name exists
-            detailsHtml = `<div><b>${nameForHeader}</b></div>`;
-          } else {
-            detailsHtml = '<div>No displayable content.</div>';
-          }
-        } else if (person.name) { // Fallback if no person.raw but name exists
-          detailsHtml = `<div><b>${nameForHeader}</b></div>`;
-        } else {
-          detailsHtml = '<div>No data available for this person.</div>';
-        }
-
-        html += `
-          <div class="parsed-person">
-            <div class="parsed-person-header">
-              <span class="parsed-person-number">${person.number}</span>
-              <span class="parsed-person-name" style="margin-left: 8px; font-weight:bold;">${nameForHeader}</span>
-            </div>
-            <div class="parsed-person-details">
-              ${detailsHtml}
-            </div>
-          </div>
-        `;
-      });
-
-      // Update the data preview
-      dataPreview.innerHTML = html;
+      displayParsedDataForTabSwitch(parsedData);
     }
-
-    // Enable the apply data button
-    applyDataBtn.disabled = false;
 
     // Store the parsed data for later use
     window.parsedGenealogyData = parsedData;
+    
+    // Don't apply data again if it's already been applied for this extraction
+    if (!currentDataApplied) {
+      // Automatically apply data to template after extraction completes
+      extractionStatus.textContent = 'Automatically applying to template...';
+      
+      // Small delay to allow the status update to render
+      setTimeout(() => {
+        // Call the applyDataToTemplate function directly
+        applyDataToTemplate();
+        currentDataApplied = true; // Mark as applied
+      }, 300);
+    }
   }
-
-  // Helper to preserve hyperlinks if present in the text
-  function preserveHyperlinks(text) {
-    // If the text already contains <a href=...>, return as is
-    if (/<a\s+href=/.test(text)) return text;
-    // If the text contains [Name](url) style, convert to <a href="url">Name</a>
-    return text.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-  }
-
-  // Store original template data when the page loads
-  const originalTemplateData = {
-    generationTitle: document.querySelector('.generation-title').textContent,
-    personEntries: Array.from(document.querySelectorAll('.person-entry')).map(entry => entry.outerHTML),
-    dividers: Array.from(document.querySelectorAll('.entry-divider')).map(divider => divider.outerHTML)
-  };
-
-  // Apply the extracted data to the template
-  applyDataBtn.addEventListener('click', function() {
+  
+  // Extract the applyDataBtn logic into a function that can be called directly
+  function applyDataToTemplate() {
     if (!window.parsedGenealogyData) {
       alert('No data available to apply to the template.');
       return;
@@ -849,7 +862,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Add divider
       const divider = document.createElement('hr');
       divider.className = 'entry-divider';
-      
+    
       // Make divider removable with a click
       divider.style.cursor = 'pointer'; // Change cursor to show it's clickable
       
@@ -878,18 +891,36 @@ document.addEventListener('DOMContentLoaded', function() {
       legacySheet.insertBefore(divider, document.querySelector('.footer'));
     }
 
-    // Update button states
-    applyDataBtn.textContent = 'Applied to Template';
-    applyDataBtn.classList.add('applied-button');
-    applyDataBtn.disabled = true;
-
-    // Show Next Person button
+    // No need to update the Apply button status since it's hidden now
+    
+    // Show Next Person button - adjust its styling now that Apply button is hidden
     nextPersonBtn.style.display = 'inline-block';
-
+    nextPersonBtn.style.marginTop = '20px'; // Ensure proper spacing above the button
+    
     // Update extraction status
-    extractionStatus.textContent = 'Person entry applied to template';
+    extractionStatus.textContent = 'Entry applied! Ready for next person.';
+  }
+
+  // Helper to preserve hyperlinks if present in the text
+  function preserveHyperlinks(text) {
+    // If the text already contains <a href=...>, return as is
+    if (/<a\s+href=/.test(text)) return text;
+    // If the text contains [Name](url) style, convert to <a href="url">Name</a>
+    return text.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  }
+
+  // Store original template data when the page loads
+  const originalTemplateData = {
+    generationTitle: document.querySelector('.generation-title').textContent,
+    personEntries: Array.from(document.querySelectorAll('.person-entry')).map(entry => entry.outerHTML),
+    dividers: Array.from(document.querySelectorAll('.entry-divider')).map(divider => divider.outerHTML)
+  };
+
+  // Apply the extracted data to the template - keep this event handler for backwards compatibility
+  applyDataBtn.addEventListener('click', function() {
+    applyDataToTemplate();
   });
-  
+
   // Add event listener for the unapply button
   const unapplyBtn = document.getElementById('unapply-data-btn');
   unapplyBtn.addEventListener('click', function() {
