@@ -867,6 +867,32 @@ document.addEventListener('DOMContentLoaded', function() {
       // Add divider
       const divider = document.createElement('hr');
       divider.className = 'entry-divider';
+      
+      // Make divider removable with a click
+      divider.style.cursor = 'pointer'; // Change cursor to show it's clickable
+      
+      // Add a subtle visual indicator on hover
+      divider.addEventListener('mouseover', function() {
+        this.style.opacity = '0.5';
+        this.title = 'Click to remove this divider';
+      });
+      
+      divider.addEventListener('mouseout', function() {
+        this.style.opacity = '1';
+      });
+      
+      // Add click event to remove the divider
+      divider.addEventListener('click', function() {
+        // Remove the divider with a fade-out effect
+        this.style.transition = 'opacity 0.3s ease';
+        this.style.opacity = '0';
+        
+        // After fade-out, remove the element and adjust spacing
+        setTimeout(() => {
+          this.remove();
+        }, 300);
+      });
+      
       legacySheet.insertBefore(divider, document.querySelector('.footer'));
     }
 
@@ -999,4 +1025,14 @@ document.addEventListener('DOMContentLoaded', function() {
       removeImageBtn.disabled = false;
     }
   }
+
+  // Only add the specific transition property needed for fade effect
+  const fadeTransitionStyle = document.createElement('style');
+  fadeTransitionStyle.textContent = `
+    .entry-divider {
+      transition: opacity 0.3s ease;
+      cursor: pointer;
+    }
+  `;
+  document.head.appendChild(fadeTransitionStyle);
 });
