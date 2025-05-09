@@ -732,6 +732,28 @@ document.addEventListener('DOMContentLoaded', function() {
           mainParagraphDiv.innerHTML = mainParagraphHTML;
           personContent.appendChild(mainParagraphDiv);
 
+          // Helper function specifically for sub-paragraph line cleaning
+          function flattenLinePreservingLinks(lineText) {
+            if (typeof lineText !== 'string') return '';
+
+            let text = lineText;
+
+            // 1. Convert all known newline sequences to a single space.
+            // Includes CR+LF (Windows), LF (Unix/Mac), CR (old Mac)
+            // VT (vertical tab), FF (form feed)
+            // Unicode: NEL (next line), LS (line separator), PS (paragraph separator)
+            text = text.replace(/\r\n|\r|\n|\v|\f|\u0085|\u2028|\u2029/g, ' ');
+
+            // 2. Convert <br> tags (case-insensitive, with or without slash, with or without spaces) to a single space.
+            text = text.replace(/<\s*br\s*\/?>/gi, ' ');
+            
+            // 3. Normalize multiple whitespace characters (which now includes spaces from replaced newlines/tags) to a single space, then trim.
+            text = text.replace(/\s+/g, ' ').trim();
+            
+            // 4. Apply hyperlink preservation to the cleaned and flattened line.
+            return preserveHyperlinks(text);
+          }
+
           // Process subsequent distinct paragraphs (indented)
           while (lineIndex < rawLines.length) {
             // Skip any further empty lines between paragraphs
@@ -739,19 +761,36 @@ document.addEventListener('DOMContentLoaded', function() {
               lineIndex++;
             }
 
-            if (lineIndex < rawLines.length) {
-              // Start of a new subsequent paragraph
-              let subsequentParagraphHTML = preserveHyperlinks(rawLines[lineIndex].trim());
+            if (lineIndex < rawLines.length) { // Found start of a new potential sub-paragraph
+              let accumulatedSubParagraphHTML = '';
+              
+              // Process the first line of this sub-paragraph block
+              let firstLineProcessed = flattenLinePreservingLinks(rawLines[lineIndex]);
+              if (firstLineProcessed) {
+                accumulatedSubParagraphHTML = firstLineProcessed;
+              }
               lineIndex++;
-              // Continue adding lines to this subsequent paragraph until an empty line or end
+
+              // Continue adding subsequent lines to this sub-paragraph block
+              // until an empty line is encountered or the end of rawLines.
               while (lineIndex < rawLines.length && rawLines[lineIndex].trim() !== '') {
-                subsequentParagraphHTML += ' ' + preserveHyperlinks(rawLines[lineIndex].trim());
+                let currentLineProcessed = flattenLinePreservingLinks(rawLines[lineIndex]);
+                if (currentLineProcessed) { // If the cleaned line has actual content
+                  if (accumulatedSubParagraphHTML) { // If there's existing content, add a space before new content
+                    accumulatedSubParagraphHTML += ' ';
+                  }
+                  accumulatedSubParagraphHTML += currentLineProcessed;
+                }
                 lineIndex++;
               }
-              const paraDiv = document.createElement('div');
-              paraDiv.className = 'indented-paragraph';
-              paraDiv.innerHTML = subsequentParagraphHTML;
-              personContent.appendChild(paraDiv);
+              
+              // Only create and append the div if there's accumulated content
+              if (accumulatedSubParagraphHTML) {
+                const paraDiv = document.createElement('div');
+                paraDiv.className = 'indented-paragraph';
+                paraDiv.innerHTML = accumulatedSubParagraphHTML;
+                personContent.appendChild(paraDiv);
+              }
             }
           }
         }
