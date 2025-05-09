@@ -80,6 +80,70 @@ document.addEventListener('DOMContentLoaded', function() {
   const extractDataBtn = document.getElementById('extract-data-btn');
   const imagePreviewThumb = document.getElementById('image-preview-thumb');
 
+  // Track if we've already cleared the static template
+  let staticTemplateCleared = false;
+
+  // Create Next Person Entry button
+  const nextPersonBtn = document.createElement('button');
+  nextPersonBtn.id = 'next-person-btn';
+  nextPersonBtn.className = 'action-button primary-button';
+  nextPersonBtn.textContent = 'Next Person Entry';
+  nextPersonBtn.style.marginLeft = '10px';
+  nextPersonBtn.style.display = 'none'; // Initially hidden
+  
+  // Insert Next Person button after the Apply button
+  applyDataBtn.parentNode.insertBefore(nextPersonBtn, applyDataBtn.nextSibling);
+  
+  // Next Person Entry button click handler
+  nextPersonBtn.addEventListener('click', function() {
+    // Reset the UI for next person entry
+    resetSidePanelUI();
+  });
+
+  // Function to reset ONLY the side panel UI for next person entry
+  function resetSidePanelUI() {
+    // Clear the file input
+    fileInput.value = '';
+    
+    // Hide the upload preview and clear preview thumb
+    uploadPreview.style.display = 'none';
+    if (imagePreviewThumb.src && imagePreviewThumb.src !== '#') {
+      URL.revokeObjectURL(imagePreviewThumb.src);
+    }
+    imagePreviewThumb.style.display = 'none';
+    imagePreviewThumb.src = '#';
+    document.getElementById('image-filename').style.display = 'block'; // Show filename field again
+    pdfFilename.textContent = 'document.pdf'; // Reset placeholder text
+    
+    // Reset progress bar
+    extractionProgress.style.width = '0%';
+    
+    // Reset extraction status
+    extractionStatus.textContent = 'Waiting for Image...';
+    
+    // Clear extracted data
+    dataPreview.innerHTML = '<p class="no-data-message">No data extracted yet</p>';
+    
+    // Reset button states
+    applyDataBtn.disabled = true;
+    applyDataBtn.textContent = 'Apply to Template';
+    applyDataBtn.classList.remove('applied-button');
+    extractDataBtn.style.display = 'none';
+    nextPersonBtn.style.display = 'none'; // Hide Next Person button
+    
+    // Clear any stored data for the side panel
+    window.parsedGenealogyData = null;
+    currentImageFile = null; // Clear stored file
+    
+    // Show the upload area again
+    uploadArea.style.display = 'flex';
+    
+    // Hide the remove image button
+    removeImageBtn.style.display = 'none';
+    
+    console.log('Side panel UI reset for next person entry');
+  }
+
   let currentImageFile = null; // To store the currently loaded image file
 
   // Handle remove Image button click
@@ -628,6 +692,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const data = window.parsedGenealogyData;
+    const legacySheet = document.querySelector('.legacy-sheet');
 
     // Update the generation title only if found
     if (data.generation) {
@@ -637,23 +702,31 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
 
-    // Clear existing person entries
-    const legacySheet = document.querySelector('.legacy-sheet');
-    const existingEntries = legacySheet.querySelectorAll('.person-entry');
-    const horizontalRule = document.querySelector('.horizontal-rule');
+    // Clear existing person entries ONLY if this is the first time we're applying data
+    // This removes the static template entries but keeps our dynamically added entries
+    if (!staticTemplateCleared) {
+      const existingEntries = legacySheet.querySelectorAll('.person-entry');
+      const horizontalRule = document.querySelector('.horizontal-rule');
 
-    // Remove all person entries and their dynamically added dividers
-    existingEntries.forEach(entry => {
-      const nextSibling = entry.nextElementSibling;
-      // Only remove the next sibling if it's NOT part of the main footer structure
-      if (nextSibling && !nextSibling.classList.contains('footer-line') && !nextSibling.classList.contains('footer')) {
-        nextSibling.remove();
-      }
-      entry.remove(); // Removes the .person-entry
-    });
+      // Remove all person entries and their dynamically added dividers
+      existingEntries.forEach(entry => {
+        const nextSibling = entry.nextElementSibling;
+        // Only remove the next sibling if it's NOT part of the main footer structure
+        if (nextSibling && !nextSibling.classList.contains('footer-line') && !nextSibling.classList.contains('footer')) {
+          nextSibling.remove();
+        }
+        entry.remove(); // Removes the .person-entry
+      });
 
-    // Create new person entries
-    data.persons.forEach((person, index) => {
+      // Mark that we've cleared the static template
+      staticTemplateCleared = true;
+    }
+
+    // Process persons one at a time - for our one-person-at-a-time workflow
+    // We'll always process just the first person in the array
+    if (data.persons && data.persons.length > 0) {
+      const person = data.persons[0]; // Get the first person in the array
+      
       // Create person entry
       const personEntry = document.createElement('div');
       personEntry.className = 'person-entry';
@@ -680,9 +753,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (lineIndex < rawLines.length) {
           // The first line of actual content, which includes the number, name, and start of bio
           // The number itself is handled by personNumber div, so we focus on name and bio from person.raw
-          // The existing regex extracts name and the rest of first line:
-          // /^(\d{1,4})\.\s*([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/
-          // We need to reconstruct the first line of text, bolding the name.
 
           const firstContentLineText = rawLines[lineIndex];
           const nameAndBioMatch = firstContentLineText.match(/^(?:\d{1,4}\.\s*)?([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/);
@@ -706,12 +776,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (currentLineTrimmed === '') {
               // Empty line signifies the end of the main paragraph.
-              // The subsequent paragraph processing logic will handle skipping this empty line.
               break;
             }
 
             // Define a regex to check for marriage indicators at the start of a trimmed line.
-            // It looks for patterns like: "FirstName married", "Married", "He married", "She married".
             const firstName = person.name ? person.name.split(' ')[0] : '[A-ZÅÄÖÜ][a-zåäöü\'-]+'; // Use person's first name or a general pattern
             const marriageIndicatorRegex = new RegExp(
               `^(${firstName}\\s+married\\b|Married\\b|(He|She)\\s+married\\b)`, 'i'
@@ -719,8 +787,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (marriageIndicatorRegex.test(currentLineTrimmed)) {
               // This line appears to start marriage details. Stop the main paragraph here.
-              // lineIndex will remain pointing at this line, allowing the subsequent
-              // paragraph processing logic to pick it up as an indented paragraph.
               break;
             }
 
@@ -739,19 +805,49 @@ document.addEventListener('DOMContentLoaded', function() {
               lineIndex++;
             }
 
-            if (lineIndex < rawLines.length) {
-              // Start of a new subsequent paragraph
-              let subsequentParagraphHTML = preserveHyperlinks(rawLines[lineIndex].trim());
-              lineIndex++;
-              // Continue adding lines to this subsequent paragraph until an empty line or end
+            if (lineIndex < rawLines.length) { // Found start of a new potential sub-paragraph
+              // IMPROVED APPROACH: Collect all text for this sub-paragraph in a single string
+              let allSubParagraphText = '';
+              
+              // Gather all lines for this sub-paragraph first
               while (lineIndex < rawLines.length && rawLines[lineIndex].trim() !== '') {
-                subsequentParagraphHTML += ' ' + preserveHyperlinks(rawLines[lineIndex].trim());
+                // Handle explicit user-inserted breaks
+                const currentLine = rawLines[lineIndex].replace(/%%USER_BREAK%%/g, '<br>');
+                
+                // If we already have content and this line doesn't start with <br>, add space
+                if (allSubParagraphText && !currentLine.trim().startsWith('<br>')) {
+                  allSubParagraphText += ' ';
+                }
+                
+                // Add the line content
+                allSubParagraphText += currentLine.trim();
                 lineIndex++;
               }
-              const paraDiv = document.createElement('div');
-              paraDiv.className = 'indented-paragraph';
-              paraDiv.innerHTML = subsequentParagraphHTML;
-              personContent.appendChild(paraDiv);
+              
+              // Only create the paragraph if we have content
+              if (allSubParagraphText) {
+                const paraDiv = document.createElement('div');
+                paraDiv.className = 'indented-paragraph';
+                
+                // Process and set the content
+                paraDiv.innerHTML = preserveHyperlinks(allSubParagraphText);
+                
+                // Make it editable
+                paraDiv.setAttribute('contenteditable', 'true');
+                paraDiv.classList.add('editable-subparagraph');
+                
+                // Add event listener for 'Enter' key to handle user breaks
+                paraDiv.addEventListener('keydown', function(e) {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.execCommand('insertLineBreak');
+                    // Update the raw data with the breaks
+                    updatePersonRawWithUserBreaks(person, personContent);
+                  }
+                });
+                
+                personContent.appendChild(paraDiv);
+              }
             }
           }
         }
@@ -764,26 +860,22 @@ document.addEventListener('DOMContentLoaded', function() {
       // Add to the document, inserting before the main footer text container
       legacySheet.insertBefore(personEntry, document.querySelector('.footer'));
 
-      // Add divider after each person (except the last one)
-      if (index < data.persons.length - 1) {
-        const divider = document.createElement('hr');
-        divider.className = 'entry-divider';
-        // Insert divider also before the main footer text container
-        legacySheet.insertBefore(divider, document.querySelector('.footer'));
-      }
-    });
+      // Add divider
+      const divider = document.createElement('hr');
+      divider.className = 'entry-divider';
+      legacySheet.insertBefore(divider, document.querySelector('.footer'));
+    }
 
     // Update button states
     applyDataBtn.textContent = 'Applied to Template';
     applyDataBtn.classList.add('applied-button');
     applyDataBtn.disabled = true;
 
-    // Show unapply button
-    const unapplyBtn = document.getElementById('unapply-data-btn');
-    unapplyBtn.style.display = 'block';
+    // Show Next Person button
+    nextPersonBtn.style.display = 'inline-block';
 
     // Update extraction status
-    extractionStatus.textContent = `Applied ${data.persons.length} person entries to the template`;
+    extractionStatus.textContent = 'Person entry applied to template';
   });
   
   // Add event listener for the unapply button
@@ -830,8 +922,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // Hide unapply button
     unapplyBtn.style.display = 'none';
     
+    // Reset staticTemplateCleared flag
+    staticTemplateCleared = false;
+    
     extractionStatus.textContent = 'Reverted to original template data';
   });
+
+  // Helper function to update person.raw with user-inserted breaks
+  function updatePersonRawWithUserBreaks(personObject, personContentElement) {
+    // Find all indented paragraphs in this person's content
+    const indentedParagraphs = personContentElement.querySelectorAll('.indented-paragraph');
+    
+    // Placeholder for a more detailed implementation
+    console.log(`Updating breaks for person ${personObject.number}`);
+    console.log(`Found ${indentedParagraphs.length} indented paragraphs`);
+    
+    // In a real implementation, we would:
+    // 1. Get the current HTML content of each paragraph
+    // 2. Convert <br> tags to %%USER_BREAK%% markers
+    // 3. Update the person.raw with these breaks
+  }
 
   async function extractTextFromImageWithOCR(imageFile) {
     try {
