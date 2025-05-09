@@ -90,11 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
   const nextPersonBtn = document.createElement('button');
   nextPersonBtn.id = 'next-person-btn';
   nextPersonBtn.className = 'action-button primary-button';
-  nextPersonBtn.textContent = 'Next Person Entry';
+  nextPersonBtn.innerHTML = 'Next Person Entry <span class="kbd-shortcut">Enter ↵</span>'; // Use the new CSS class
   nextPersonBtn.style.marginLeft = '0'; // Remove left margin to align with the button above
   nextPersonBtn.style.display = 'none'; // Initially hidden
   nextPersonBtn.style.width = '100%'; // Make it full width like the Apply button
   nextPersonBtn.style.marginTop = '20px'; // Add top margin to prevent overlap with toggle buttons
+  nextPersonBtn.title = 'Press Enter key as a shortcut'; // Add tooltip to show keyboard shortcut
   
   // Insert Next Person button after the Apply button
   applyDataBtn.parentNode.insertBefore(nextPersonBtn, applyDataBtn.nextSibling);
@@ -103,6 +104,15 @@ document.addEventListener('DOMContentLoaded', function() {
   nextPersonBtn.addEventListener('click', function() {
     // Reset the UI for next person entry
     resetSidePanelUI();
+  });
+
+  // Add keyboard shortcut (Enter key) for Next Person Entry
+  document.addEventListener('keydown', function(e) {
+    // Check if Enter key is pressed and the Next Person button is visible
+    if (e.key === 'Enter' && nextPersonBtn.style.display === 'inline-block') {
+      e.preventDefault(); // Prevent default Enter key behavior
+      resetSidePanelUI(); // Call the same function as button click
+    }
   });
 
   // Function to reset ONLY the side panel UI for next person entry
