@@ -830,26 +830,8 @@ document.addEventListener('DOMContentLoaded', function() {
               
               // Only create the paragraph if we have content
               if (allSubParagraphText) {
-                const paraDiv = document.createElement('div');
-                paraDiv.className = 'indented-paragraph';
-                
-                // Process and set the content
-                paraDiv.innerHTML = preserveHyperlinks(allSubParagraphText);
-                
-                // Make it editable
-                paraDiv.setAttribute('contenteditable', 'true');
-                paraDiv.classList.add('editable-subparagraph');
-                
-                // Add event listener for 'Enter' key to handle user breaks
-                paraDiv.addEventListener('keydown', function(e) {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    document.execCommand('insertLineBreak');
-                    // Update the raw data with the breaks
-                    updatePersonRawWithUserBreaks(person, personContent);
-                  }
-                });
-                
+                // Use our new function to create the paragraph with controls
+                const paraDiv = createEditableSubparagraph(allSubParagraphText, person, personContent);
                 personContent.appendChild(paraDiv);
               }
             }
@@ -1033,6 +1015,172 @@ document.addEventListener('DOMContentLoaded', function() {
       transition: opacity 0.3s ease;
       cursor: pointer;
     }
+    
+    /* Styles for subparagraph hover controls - Apple UI Style */
+    .indented-paragraph {
+      position: relative;
+      transition: background-color 0.2s ease;
+      padding: 4px 6px;
+      border-radius: 3px;
+    }
+    
+    .indented-paragraph:hover {
+      background-color: rgba(240, 240, 240, 0.5);
+    }
+    
+    .paragraph-controls {
+      position: absolute;
+      right: 10px;
+      top: -45px;
+      display: none;
+      background-color: rgba(248, 248, 248, 0.95);
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      padding: 0px;
+      z-index: 100;
+      flex-direction: row;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    /* Add the downward-pointing arrow */
+    .paragraph-controls:after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      width: 16px;
+      height: 16px;
+      background-color: rgba(248, 248, 248, 0.95);
+      transform: translateX(-50%) rotate(45deg);
+      box-shadow: 2px 2px 3px rgba(0,0,0,0.05);
+      z-index: -1;
+    }
+    
+    .indented-paragraph:hover .paragraph-controls {
+      display: flex;
+    }
+    
+    .paragraph-controls button {
+      border: none;
+      background: none;
+      cursor: pointer;
+      padding: 8px 12px;
+      margin: 0;
+      color: #000;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 40px;
+      text-align: center;
+    }
+    
+    .paragraph-controls button:not(:last-child) {
+      border-right: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    .paragraph-controls button:active {
+      background-color: rgba(0,0,0,0.05);
+    }
+    
+    .paragraph-controls button:first-child {
+      border-top-left-radius: 14px;
+      border-bottom-left-radius: 14px;
+    }
+    
+    .paragraph-controls button:last-child {
+      border-top-right-radius: 14px;
+      border-bottom-right-radius: 14px;
+    }
   `;
   document.head.appendChild(fadeTransitionStyle);
+
+  // Update the paragraph controls functions to match Apple UI style
+  function addParagraphControls(paraDiv, person, personContent) {
+    // Create controls container
+    const controls = document.createElement('div');
+    controls.className = 'paragraph-controls';
+    
+    // Create edit button
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit-btn';
+    editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+    </svg>`;
+    editBtn.addEventListener('click', function(e) {
+      e.stopPropagation(); // Prevent event bubbling
+      paraDiv.focus(); // Focus the paragraph for editing
+    });
+    
+    // Create delete button
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+    </svg>`;
+    deleteBtn.addEventListener('click', function(e) {
+      e.stopPropagation(); // Prevent event bubbling
+      
+      // Fade out the paragraph
+      paraDiv.style.transition = 'opacity 0.3s ease, margin 0.3s ease, padding 0.3s ease, height 0.3s ease';
+      paraDiv.style.opacity = '0';
+      paraDiv.style.height = '0';
+      paraDiv.style.margin = '0';
+      paraDiv.style.padding = '0';
+      paraDiv.style.overflow = 'hidden';
+      
+      // Remove the paragraph after the animation
+      setTimeout(() => {
+        paraDiv.remove();
+        
+        // Update the raw data if needed
+        if (person && personContent) {
+          updatePersonRawWithRemovedParagraph(person, personContent, paraDiv);
+        }
+      }, 300);
+    });
+    
+    // Add buttons to controls
+    controls.appendChild(editBtn);
+    controls.appendChild(deleteBtn);
+    
+    // Add controls to paragraph
+    paraDiv.appendChild(controls);
+  }
+
+  // Update the paragraph creation code to add controls
+  function createEditableSubparagraph(allSubParagraphText, person, personContent) {
+    const paraDiv = document.createElement('div');
+    paraDiv.className = 'indented-paragraph';
+    
+    // Process and set the content
+    paraDiv.innerHTML = preserveHyperlinks(allSubParagraphText);
+    
+    // Make it editable
+    paraDiv.setAttribute('contenteditable', 'true');
+    paraDiv.classList.add('editable-subparagraph');
+    
+    // Add event listener for 'Enter' key to handle user breaks
+    paraDiv.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.execCommand('insertLineBreak');
+        // Update the raw data with the breaks
+        updatePersonRawWithUserBreaks(person, personContent);
+      }
+    });
+    
+    // Add hover controls for editing/deleting
+    addParagraphControls(paraDiv, person, personContent);
+    
+    return paraDiv;
+  }
+
+  // Helper function to update raw data when paragraph is removed
+  function updatePersonRawWithRemovedParagraph(personObject, personContentElement, removedParagraph) {
+    console.log(`Paragraph removed from person ${personObject.number}`);
+    // In a real implementation, we would update personObject.raw to remove the paragraph
+    // For now, this is just a placeholder
+  }
 });
