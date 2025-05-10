@@ -793,7 +793,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Fallback if regex doesn't match (e.g. no clear name pattern on the first line)
             mainParagraphHTML = preserveHyperlinks(firstContentLineText);
           }
-          lineIndex++; // Move to the line AFTER the first content line
+          lineIndex++;
 
           // Continue adding subsequent lines to the main paragraph
           // until an empty line, end of lines, or a marriage indicator line.
@@ -821,10 +821,77 @@ document.addEventListener('DOMContentLoaded', function() {
             lineIndex++;
           }
 
+          // Create main paragraph div with hover controls
           const mainParagraphDiv = document.createElement('div');
+          mainParagraphDiv.className = 'main-person-paragraph';
           mainParagraphDiv.innerHTML = mainParagraphHTML;
+          
+          // Make it editable
+          mainParagraphDiv.setAttribute('contenteditable', 'true');
+          
+          // Add event listener for 'Enter' key to handle user breaks
+          mainParagraphDiv.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              document.execCommand('insertLineBreak');
+              // Update the raw data with the breaks
+              updatePersonRawWithUserBreaks(person, personContent);
+            }
+          });
+          
+          // Add event listeners to check if selection is bold
+          mainParagraphDiv.addEventListener('mouseup', checkSelectionFormatting);
+          mainParagraphDiv.addEventListener('keyup', checkSelectionFormatting);
+          mainParagraphDiv.addEventListener('click', checkSelectionFormatting);
+          mainParagraphDiv.addEventListener('focus', checkSelectionFormatting);
+          
+          // Also check formatting on mousedown to handle selection by double/triple clicking
+          mainParagraphDiv.addEventListener('mousedown', function(e) {
+            // Slight delay to allow browser to complete the selection process
+            setTimeout(checkSelectionFormatting, 10);
+          });
+          
+          // Add listener for selection changes within the document
+          document.addEventListener('selectionchange', function(e) {
+            // Only process if the paragraph has focus
+            if (document.activeElement === mainParagraphDiv) {
+              checkSelectionFormatting();
+            }
+          });
+          
+          // Function to check if current selection is within bold text
+          function checkSelectionFormatting() {
+            const controls = mainParagraphDiv.querySelector('.paragraph-controls');
+            if (!controls) return;
+            
+            const boldBtn = controls.querySelector('.bold-btn');
+            if (!boldBtn) return;
+            
+            try {
+              // Only check if this paragraph is active
+              if (document.activeElement !== mainParagraphDiv) {
+                boldBtn.classList.remove('active-format');
+                return;
+              }
+              
+              // Simplest check - does the current selection or cursor position have bold formatting
+              const isBold = document.queryCommandState('bold');
+              
+              if (isBold) {
+                boldBtn.classList.add('active-format');
+              } else {
+                boldBtn.classList.remove('active-format');
+              }
+            } catch (e) {
+              console.error('Error checking bold state:', e);
+            }
+          }
+          
+          // Add hover controls for editing/deleting
+          addParagraphControls(mainParagraphDiv, person, personContent);
+          
           personContent.appendChild(mainParagraphDiv);
-
+          
           // Process subsequent distinct paragraphs (indented)
           while (lineIndex < rawLines.length) {
             // Skip any further empty lines between paragraphs
@@ -1055,6 +1122,24 @@ document.addEventListener('DOMContentLoaded', function() {
     .entry-divider {
       transition: opacity 0.3s ease;
       cursor: pointer;
+    }
+    
+    /* Styles for main person paragraph */
+    .main-person-paragraph {
+      position: relative;
+      transition: background-color 0.2s ease;
+      padding: 4px 6px;
+      border-radius: 3px;
+      margin-bottom: 1em;
+    }
+    
+    .main-person-paragraph:hover {
+      background-color: rgba(240, 240, 240, 0.5);
+    }
+    
+    /* Show paragraph controls on hover for main paragraph too */
+    .main-person-paragraph:hover .paragraph-controls {
+      display: flex;
     }
     
     /* Styles for subparagraph hover controls - Apple UI Style */
