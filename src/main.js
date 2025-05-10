@@ -1181,6 +1181,22 @@ document.addEventListener('DOMContentLoaded', function() {
       margin: 0 auto 0.412in !important;
     }
     
+    /* Theme color for specially formatted text */
+    .theme-color {
+      color: #a85733 !important;
+    }
+    
+    /* Styling for active formatting buttons */
+    .paragraph-controls button.active-format {
+      background-color: rgba(0, 0, 0, 0.1);
+      color: #a85733;
+    }
+    
+    /* Style the color button with theme color */
+    .paragraph-controls .color-btn svg {
+      stroke: #a85733;
+    }
+    
     /* Styles for main person paragraph */
     .main-person-paragraph {
       position: relative;
@@ -1211,22 +1227,31 @@ document.addEventListener('DOMContentLoaded', function() {
       background-color: rgba(240, 240, 240, 0.5);
     }
     
-    /* Add style for child number circles - theme-matched styling */
+    /* Add style for child number circles - improved to handle large numbers */
     .child-number {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
+      min-width: 20px; /* Base size that will grow */
       height: 20px;
-      border-radius: 50%;
+      border-radius: 10px; /* Half of height to ensure it stays circular */
       background-color: transparent;
       border: 1px solid #a85733;
-      font-size: 12px;
+      font-size: 11px; /* Slightly smaller font for better fit */
       margin-right: 4px;
       text-align: center;
       line-height: 1;
       font-weight: normal;
       color: #333;
+      box-sizing: content-box; /* Ensures border doesn't affect dimensions */
+      padding: 0 4px; /* Horizontal padding to accommodate larger numbers */
+    }
+    
+    /* For extremely large child numbers */
+    .child-number.large-number {
+      padding: 0 6px; /* More horizontal padding for very large numbers */
+      font-size: 9px; /* Smaller font for very large numbers */
+      border-radius: 12px; /* Adjusted for the shape */
     }
     
     .paragraph-controls {
@@ -1317,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Create bold button
     const boldBtn = document.createElement('button');
     boldBtn.className = 'bold-btn';
-    boldBtn.title = 'Bold text';
+    boldBtn.title = 'Bold text (Ctrl+B)';
     boldBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
       <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
@@ -1372,6 +1397,63 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
     
+    // Create brown text color button
+    const colorBtn = document.createElement('button');
+    colorBtn.className = 'color-btn';
+    colorBtn.title = 'Apply theme color (Ctrl+J)';
+    colorBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a85733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+    </svg>`;
+    colorBtn.addEventListener('click', function(e) {
+      e.stopPropagation(); // Prevent event bubbling
+      e.preventDefault(); // Prevent default
+      
+      // Make sure the paragraph has focus
+      paraDiv.focus();
+      
+      // Check if there's a selection
+      const selection = window.getSelection();
+      
+      // If no selection or collapsed (just a cursor), select all paragraph text
+      if (!selection.rangeCount || selection.isCollapsed) {
+        console.log("No selection, selecting all text");
+        const range = document.createRange();
+        range.selectNodeContents(paraDiv);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // There is a selection, check if it's within our paragraph
+        const range = selection.getRangeAt(0);
+        const selectionParent = range.commonAncestorContainer;
+        
+        if (!paraDiv.contains(selectionParent)) {
+          console.log("Selection outside paragraph, selecting all text");
+          // Selection is outside our paragraph, select all paragraph content instead
+          const newRange = document.createRange();
+          newRange.selectNodeContents(paraDiv);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          console.log("Selection within paragraph, using it");
+          // Selection is already within our paragraph, use it
+        }
+      }
+      
+      // Apply theme color to the selection
+      document.execCommand('foreColor', false, '#a85733');
+      
+      // Don't clear selection if user selected specific text
+      // Only clear if we auto-selected the whole paragraph
+      if (!selection.rangeCount || selection.getRangeAt(0).toString().trim() === paraDiv.textContent.trim()) {
+        selection.removeAllRanges();
+      }
+      
+      // Update the raw data with the formatting changes
+      if (person && personContent) {
+        updatePersonRawWithUserBreaks(person, personContent);
+      }
+    });
+    
     // Create delete button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
@@ -1405,6 +1487,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add buttons to controls
     controls.appendChild(editBtn);
     controls.appendChild(boldBtn);
+    controls.appendChild(colorBtn);
     controls.appendChild(deleteBtn);
     
     // Add controls to paragraph
@@ -1434,7 +1517,9 @@ document.addEventListener('DOMContentLoaded', function() {
       let childEntryHtml = '';
       
       // Add the circular number regardless of original format
-      childEntryHtml += `<span class="child-number">${childNumber}</span> `;
+      // Check if number is large (more than 3 digits) to add special class
+      const isLargeNumber = childNumber.length > 3;
+      childEntryHtml += `<span class="child-number${isLargeNumber ? ' large-number' : ''}">${childNumber}</span> `;
       
       // Add the roman numeral
       childEntryHtml += `${romanNumeral}. `;
@@ -1528,4 +1613,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // In a real implementation, we would update personObject.raw to remove the paragraph
     // For now, this is just a placeholder
   }
+
+  // Add global keyboard shortcuts for formatting
+  document.addEventListener('keydown', function(e) {
+    // Check if Ctrl+J is pressed (for theme color)
+    if (e.ctrlKey && e.key === 'j') {
+      e.preventDefault(); // Prevent default browser action
+      
+      // Get the active element (focused element)
+      const activeElement = document.activeElement;
+      
+      // Only proceed if the active element is one of our editable paragraphs
+      if (activeElement && (activeElement.classList.contains('main-person-paragraph') || 
+                           activeElement.classList.contains('indented-paragraph') ||
+                           activeElement.classList.contains('editable-subparagraph'))) {
+        
+        // Get current selection
+        const selection = window.getSelection();
+        
+        // If there's a valid selection range
+        if (selection.rangeCount > 0) {
+          // Apply theme color
+          document.execCommand('foreColor', false, '#a85733');
+          console.log('Applied theme color with Ctrl+J');
+        }
+      }
+    }
+  });
 });
