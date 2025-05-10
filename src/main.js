@@ -55,6 +55,35 @@ class PageManager {
       this.deletePageBtn.addEventListener('click', () => this.deleteCurrentPage());
     }
     
+    // Page jump functionality
+    const pageJumpForm = document.getElementById('page-jump-form');
+    const pageInput = document.getElementById('page-input');
+    const pageTotal = document.getElementById('page-total');
+
+    if (pageJumpForm && pageInput) {
+      // Handle form submission
+      pageJumpForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const pageNumber = parseInt(pageInput.value);
+        this.jumpToPage(pageNumber);
+      });
+
+      // Update when input loses focus
+      pageInput.addEventListener('blur', () => {
+        const pageNumber = parseInt(pageInput.value);
+        this.jumpToPage(pageNumber);
+      });
+      
+      // Update when Enter key is pressed
+      pageInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const pageNumber = parseInt(pageInput.value);
+          this.jumpToPage(pageNumber);
+        }
+      });
+    }
+    
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') {
@@ -147,14 +176,32 @@ class PageManager {
     // Add to container
     this.pagesContainer.appendChild(newPage);
     
-    // Navigate to the new page
-    this.setActivePage(newIndex);
-    
-    // Update navigation buttons
-    this.updateNavigationButtons();
-    
-    // Save state
-    this.saveState();
+    // Use setTimeout to ensure DOM is updated before setting the page active
+    setTimeout(() => {
+      // Ensure all existing pages are inactive
+      const allPages = this.pagesContainer.querySelectorAll('.legacy-sheet');
+      allPages.forEach(page => page.classList.remove('active-page'));
+      
+      // Directly add the active class to the new page
+      newPage.classList.add('active-page');
+      
+      // Force scroll to the new page immediately
+      newPage.scrollIntoView({
+        behavior: 'auto', // Use immediate scrolling instead of smooth
+        block: 'nearest',
+        inline: 'center'
+      });
+      
+      // Update current page index
+      this.currentPageIndex = newIndex;
+      
+      // Update page indicator and navigation buttons
+      this.updatePageIndicator();
+      this.updateNavigationButtons();
+      
+      // Save state after all updates
+      this.saveState();
+    }, 50); // Short timeout to ensure DOM updates
   }
   
   /**
@@ -213,15 +260,18 @@ class PageManager {
     const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
     if (pageIndex < 0 || pageIndex >= pages.length) return;
     
+    // Store the target page
+    const targetPage = pages[pageIndex];
+    
     // Remove active class from all pages
     pages.forEach(page => page.classList.remove('active-page'));
     
     // Add active class to target page
-    pages[pageIndex].classList.add('active-page');
+    targetPage.classList.add('active-page');
     
-    // Scroll to the page
-    pages[pageIndex].scrollIntoView({
-      behavior: 'smooth',
+    // Scroll to the page immediately without animation
+    targetPage.scrollIntoView({
+      behavior: 'auto', // Use immediate scrolling for reliable positioning
       block: 'nearest',
       inline: 'center'
     });
@@ -234,6 +284,17 @@ class PageManager {
     
     // Update navigation buttons
     this.updateNavigationButtons();
+    
+    // Make sure the page is visible by forcing focus to an element on the page
+    // This helps ensure it's properly displayed
+    const generationTitle = targetPage.querySelector('.generation-title');
+    if (generationTitle) {
+      // Set focus then immediately remove to avoid keyboard input
+      generationTitle.setAttribute('tabindex', '-1');
+      generationTitle.focus();
+      generationTitle.blur();
+      generationTitle.removeAttribute('tabindex');
+    }
   }
   
   /**
@@ -241,7 +302,20 @@ class PageManager {
    */
   updatePageIndicator() {
     const pageCount = this.pagesContainer.querySelectorAll('.legacy-sheet').length;
-    if (this.pageIndicator) {
+    const pageInput = document.getElementById('page-input');
+    const pageTotal = document.getElementById('page-total');
+    
+    if (pageInput && pageTotal) {
+      // Update input value to current page (1-based)
+      pageInput.value = this.currentPageIndex + 1;
+      
+      // Update max attribute to match total pages
+      pageInput.max = pageCount;
+      
+      // Update total pages display
+      pageTotal.textContent = pageCount;
+    } else if (this.pageIndicator) {
+      // Fallback to old text-only display if input not found
       this.pageIndicator.textContent = `Page ${this.currentPageIndex + 1} of ${pageCount}`;
     }
   }
@@ -478,6 +552,30 @@ class PageManager {
     this.saveState();
     
     console.log(`Deleted page at index ${this.currentPageIndex}`);
+  }
+
+  /**
+   * Jump to a specific page by page number (1-based index)
+   * @param {number} pageNumber - The page number to jump to (1-based)
+   */
+  jumpToPage(pageNumber) {
+    const pageCount = this.pagesContainer.querySelectorAll('.legacy-sheet').length;
+    
+    // Validate page number
+    if (isNaN(pageNumber) || pageNumber < 1 || pageNumber > pageCount) {
+      // Reset to current page if invalid
+      this.updatePageIndicator();
+      return;
+    }
+    
+    // Convert from 1-based page number to 0-based index
+    const pageIndex = pageNumber - 1;
+    
+    // Save current page state before jumping
+    this.saveCurrentPageState();
+    
+    // Set the active page
+    this.setActivePage(pageIndex);
   }
 }
 
