@@ -60,6 +60,7 @@
     scroll-behavior: smooth;
     width: 100%;
     padding: 20px;
+    padding-bottom: 100px; /* Add padding at the bottom to prevent pagination controls from blocking content */
     box-sizing: border-box;
     /* Hide scrollbar but allow scrolling */
     scrollbar-width: none; /* Firefox */
@@ -75,11 +76,28 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 20px;
-    padding: 10px;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    background-color: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+    /* Ensure it's properly centered regardless of panel layout */
+    margin: 0;
+    width: auto;
+    max-width: 90vw; /* Prevent it from going off-screen on small devices */
+}
+
+.pagination-controls:hover {
     background-color: rgba(255, 255, 255, 0.8);
-    border-radius: 25px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
 }
 
 .pagination-button {
@@ -94,17 +112,18 @@
     justify-content: center;
     cursor: pointer;
     margin: 0 10px;
-    transition: background-color 0.2s ease, opacity 0.2s ease;
+    transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 .pagination-button:disabled {
-    background-color: #ccc;
+    background-color: rgba(204, 204, 204, 0.7);
     cursor: not-allowed;
     opacity: 0.6;
 }
 
 .pagination-button:hover:not(:disabled) {
     background-color: #3a4d2a;
+    transform: scale(1.05);
 }
 
 .page-indicator {
@@ -114,6 +133,7 @@
     margin: 0 15px;
     min-width: 100px;
     text-align: center;
+    font-weight: 500;
 }
 
 /* Add New Page button */
@@ -633,7 +653,7 @@ a {
         background: none;
     }
     
-    .app-container, .left-panel, .action-buttons {
+    .app-container, .left-panel, .action-buttons, .pagination-controls {
         display: none;
     }
     
@@ -644,6 +664,8 @@ a {
         padding: 0.75in 0.536in 0.123in 0.451in; /* Match the main padding */
         box-shadow: none;
         page-break-after: always;
+        opacity: 1 !important;
+        transform: none !important;
     }
 }
 
@@ -671,6 +693,40 @@ a {
         transform: scale(0.85);
         transform-origin: top center;
         margin: 0 auto;
+    }
+    
+    .pagination-controls {
+        bottom: 15px;
+        padding: 8px 15px;
+    }
+    
+    .pagination-button {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .page-indicator {
+        font-size: 14px;
+        min-width: 80px;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .pagination-controls {
+        bottom: 10px;
+        padding: 6px 12px;
+    }
+    
+    .pagination-button {
+        width: 30px;
+        height: 30px;
+        margin: 0 5px;
+    }
+    
+    .page-indicator {
+        font-size: 12px;
+        min-width: 60px;
+        margin: 0 8px;
     }
 }
 
