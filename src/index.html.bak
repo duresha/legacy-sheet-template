@@ -18,54 +18,54 @@
                         <p>Paste screenshot or <span class="browse-text">browse image</span></p>
                         <input type="file" id="image-upload" accept="image/*" class="file-input" />
                     </div>
-                    <div class="upload-preview" id="upload-preview">
-                        <div class="pdf-upload-status">
-                            <img id="image-preview-thumb" src="#" alt="Image Preview" style="display: none; max-width: 150px; max-height: 150px; border-radius: 8px; margin: 0 auto 10px auto; border: 1px solid #ddd;">
-                            <div class="pdf-info" id="image-info-container">
-                                <div class="pdf-filename" id="image-filename">document.pdf</div>
+                    
+                    <div class="upload-preview" id="upload-preview" style="display: none;">
+                        <div class="image-container">
+                            <img id="image-preview-thumb" src="#" alt="Preview" style="display: none;">
+                            <h4 id="image-filename">document.pdf</h4>
+                            <button id="remove-image-btn" class="action-button secondary-button" style="display: none;">Remove</button>
+                        </div>
+                        <div class="extraction-info">
+                            <div class="extraction-status">
+                                <p id="extraction-status">Waiting for Image...</p>
+                                <div class="progress-container">
+                                    <div id="extraction-progress" class="progress-bar"></div>
+                                </div>
                             </div>
+                            <button id="extract-data-btn" class="action-button primary-button" style="display: none;">Extract Data</button>
                         </div>
-                        <div class="progress-container" style="margin-top: 15px;">
-                            <div class="progress-bar" id="extraction-progress"></div>
-                        </div>
-                        <div class="extraction-status" id="extraction-status" style="margin-top: 10px; margin-bottom:15px;">Waiting for Image...</div>
-                        
-                        <button id="extract-data-btn" class="action-button" style="display: none; margin-bottom: 10px;">Extract Data</button>
-                        <button id="remove-image-btn" class="remove-pdf-button">Remove Image</button>
                     </div>
                 </div>
                 
-                <div class="extracted-data-container" id="extracted-data-container">
-                    <h3>Extracted Data</h3>
-                    <div class="view-toggle">
-                        <button id="raw-view-btn" class="view-toggle-btn active">Raw Text</button>
-                        <button id="parsed-view-btn" class="view-toggle-btn">Parsed Data</button>
-                    </div>
-                    <div class="data-preview" id="data-preview">
-                        <p class="no-data-message">No data extracted yet</p>
-                    </div>
-                    <button id="apply-data-btn" class="action-button" disabled>Apply to Template</button>
-                    <button id="unapply-data-btn" class="action-button unapply-button" style="display: none;">Revert to Original Template</button>
+                <div class="view-toggle">
+                    <button id="parsed-view-btn" class="view-toggle-btn active">Parsed View</button>
+                    <button id="raw-view-btn" class="view-toggle-btn">Raw Text</button>
+                </div>
+                
+                <div id="data-preview" class="data-preview">
+                    <p class="no-data-message">No data extracted yet</p>
+                </div>
+                
+                <div class="action-buttons">
+                    <button id="apply-data-btn" class="action-button primary-button" disabled>Apply to Template</button>
+                    <button id="unapply-data-btn" class="action-button secondary-button" style="display: none;">Restore Original</button>
                 </div>
             </div>
             
-            <button id="add-page-btn" class="add-page-button" style="display: none;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-                Add New Page
-            </button>
+            <!-- Page Controls (will be inserted via JavaScript) -->
+            <div id="page-controls-container"></div>
             
-            <button id="save-pdf-btn" class="save-pdf-button">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11zM8 15.01l1.41 1.41L11 14.83V19h2v-4.17l1.59 1.59L16 15.01 12.01 11z"/></svg>
-                Save PDF
-            </button>
+            <div class="pdf-actions">
+                <button id="save-pdf-btn" class="action-button primary-button">Save PDF</button>
+            </div>
         </div>
         
-        <!-- Right Panel: Legacy Sheet Template -->
+        <!-- Right Panel: Display Area -->
         <div class="panel right-panel">
             <!-- Pages Container -->
-            <div class="pages-container" id="pages-container">
-                <!-- Legacy Sheet Container -->
-                <div class="legacy-sheet active-page" data-page-index="0">
+            <div id="pages-container" class="pages-container">
+                <!-- Legacy Sheet Container - First Page -->
+                <div class="legacy-sheet page active" id="page-0">
                     <!-- Generation Header -->
                     <div class="generation-title">Sixth Generation</div>
                     <hr class="horizontal-rule">
@@ -151,21 +151,9 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- Pagination Controls -->
-            <div class="pagination-controls">
-                <button id="prev-page-btn" class="pagination-button" disabled>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-                </button>
-                <div id="page-indicator" class="page-indicator">Page 1 of 1</div>
-                <button id="next-page-btn" class="pagination-button" disabled>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-                </button>
-            </div>
         </div>
     </div>
 
     <script type="module" src="./main.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </body>
 </html>

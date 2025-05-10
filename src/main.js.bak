@@ -1,0 +1,424 @@
+// main.js
+// Import libraries for PDF generation with download animation
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { saveAs } from 'file-saver';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure the PDF.js worker to use a local file
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.min.mjs', import.meta.url).toString();
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Legacy Sheet Template loaded successfully');
+  
+  // Multi-page functionality globals
+  window.legacySheetPages = [];
+  window.currentPageIndex = 0;
+  
+  // Function to create and setup page navigation controls
+  function setupPageNavigation() {
+    // Create page controls container
+    const pageControlsContainer = document.createElement('div');
+    pageControlsContainer.className = 'page-controls-container';
+    
+    // Create navigation
+    const pageNavigation = document.createElement('div');
+    pageNavigation.className = 'page-navigation';
+    
+    // Left arrow
+    const leftArrow = document.createElement('button');
+    leftArrow.className = 'nav-arrow left-arrow disabled';
+    leftArrow.innerHTML = '&larr;';
+    leftArrow.title = 'Previous Page';
+    leftArrow.disabled = true;
+    leftArrow.addEventListener('click', navigateToPrevPage);
+    
+    // Page indicator
+    const pageIndicator = document.createElement('div');
+    pageIndicator.className = 'page-indicator';
+    pageIndicator.id = 'page-indicator';
+    pageIndicator.textContent = 'Page 1 of 1';
+    
+    // Right arrow
+    const rightArrow = document.createElement('button');
+    rightArrow.className = 'nav-arrow right-arrow disabled';
+    rightArrow.innerHTML = '&rarr;';
+    rightArrow.title = 'Next Page';
+    rightArrow.disabled = true;
+    rightArrow.addEventListener('click', navigateToNextPage);
+    
+    // Assemble navigation
+    pageNavigation.appendChild(leftArrow);
+    pageNavigation.appendChild(pageIndicator);
+    pageNavigation.appendChild(rightArrow);
+    
+    // Create buttons container
+    const pageButtons = document.createElement('div');
+    pageButtons.className = 'page-buttons';
+    
+    // Add new page button
+    const newPageBtn = document.createElement('button');
+    newPageBtn.className = 'new-page-btn';
+    newPageBtn.textContent = 'Add New Page';
+    newPageBtn.title = 'Add a new page to the document';
+    newPageBtn.addEventListener('click', addNewPage);
+    
+    // Add to buttons container
+    pageButtons.appendChild(newPageBtn);
+    
+    // Assemble page controls
+    pageControlsContainer.appendChild(pageNavigation);
+    pageControlsContainer.appendChild(pageButtons);
+    
+    // Insert before the Save PDF button
+    const pdfActions = document.querySelector('.pdf-actions') || savePdfBtn.parentNode;
+    pdfActions.parentNode.insertBefore(pageControlsContainer, pdfActions);
+    
+    return {
+      leftArrow,
+      pageIndicator,
+      rightArrow,
+      newPageBtn
+    };
+  }
+  
+  // Function to navigate to previous page
+  function navigateToPrevPage() {
+    if (window.currentPageIndex > 0) {
+      saveCurrentPageState();
+      window.currentPageIndex--;
+      loadPage(window.currentPageIndex);
+      updatePageNavigation();
+    }
+  }
+  
+  // Function to navigate to next page
+  function navigateToNextPage() {
+    if (window.currentPageIndex < window.legacySheetPages.length - 1) {
+      saveCurrentPageState();
+      window.currentPageIndex++;
+      loadPage(window.currentPageIndex);
+      updatePageNavigation();
+    }
+  }
+  
+  // Function to add a new page
+  function addNewPage() {
+    // Save current page state
+    saveCurrentPageState();
+    
+    // Create new page from template
+    const pagesContainer = document.getElementById('pages-container');
+    const newPage = document.createElement('div');
+    newPage.className = 'legacy-sheet page';
+    newPage.id = `page-${window.legacySheetPages.length}`;
+    
+    // Set up basic page structure
+    newPage.innerHTML = `
+      <div class="generation-title" contenteditable="true">New Generation</div>
+      <hr class="horizontal-rule">
+      <div class="footer-line"></div>
+      <div class="footer">
+        <div class="report-name">Sapling Platinum Report</div>
+        <div class="page-number">${window.legacySheetPages.length + 1}</div>
+      </div>
+    `;
+    
+    // Add to pages container
+    pagesContainer.appendChild(newPage);
+    
+    // Store page data
+    window.legacySheetPages.push({
+      index: window.legacySheetPages.length,
+      element: newPage,
+      generationTitle: 'New Generation',
+      personEntries: [],
+      dividers: [],
+      staticTemplateCleared: true
+    });
+    
+    // Navigate to the new page
+    window.currentPageIndex = window.legacySheetPages.length - 1;
+    loadPage(window.currentPageIndex);
+    updatePageNavigation();
+    
+    // Make generation title editable
+    const generationTitle = newPage.querySelector('.generation-title');
+    makeGenerationTitleEditable(generationTitle);
+    
+    console.log('Added new page', window.currentPageIndex + 1);
+  }
+  
+  // Function to save the current page state
+  function saveCurrentPageState() {
+    if (window.currentPageIndex >= 0 && window.legacySheetPages.length > 0) {
+      const currentPage = window.legacySheetPages[window.currentPageIndex];
+      const activePage = document.querySelector('.legacy-sheet.page.active');
+      
+      if (!activePage) return;
+      
+      // Save generation title
+      currentPage.generationTitle = activePage.querySelector('.generation-title').textContent;
+      
+      // Save person entries HTML
+      currentPage.personEntries = Array.from(activePage.querySelectorAll('.person-entry')).map(entry => entry.outerHTML);
+      
+      // Save dividers HTML
+      currentPage.dividers = Array.from(activePage.querySelectorAll('.entry-divider')).map(divider => divider.outerHTML);
+      
+      // Save other states
+      currentPage.staticTemplateCleared = window.staticTemplateCleared || false;
+      
+      console.log('Saved state for page', window.currentPageIndex + 1);
+    }
+  }
+  
+  // Function to load a specific page
+  function loadPage(pageIndex) {
+    // Hide all pages
+    document.querySelectorAll('.legacy-sheet.page').forEach(page => {
+      page.classList.remove('active');
+    });
+    
+    // Show the requested page
+    const targetPage = document.getElementById(`page-${pageIndex}`);
+    if (targetPage) {
+      targetPage.classList.add('active');
+      
+      // Update global state variables
+      window.staticTemplateCleared = window.legacySheetPages[pageIndex].staticTemplateCleared || false;
+      
+      // Update page number in footer
+      const pageNumber = targetPage.querySelector('.page-number');
+      if (pageNumber) {
+        pageNumber.textContent = (pageIndex + 1).toString();
+      }
+      
+      console.log('Loaded page', pageIndex + 1);
+    } else {
+      console.error('Page not found:', pageIndex);
+    }
+  }
+  
+  // Function to update page navigation state
+  function updatePageNavigation() {
+    const leftArrow = document.querySelector('.left-arrow');
+    const rightArrow = document.querySelector('.right-arrow');
+    const pageIndicator = document.getElementById('page-indicator');
+    
+    // Update page indicator
+    if (pageIndicator) {
+      pageIndicator.textContent = `Page ${window.currentPageIndex + 1} of ${window.legacySheetPages.length}`;
+    }
+    
+    // Update left arrow
+    if (leftArrow) {
+      if (window.currentPageIndex <= 0) {
+        leftArrow.disabled = true;
+        leftArrow.classList.add('disabled');
+      } else {
+        leftArrow.disabled = false;
+        leftArrow.classList.remove('disabled');
+      }
+    }
+    
+    // Update right arrow
+    if (rightArrow) {
+      if (window.currentPageIndex >= window.legacySheetPages.length - 1) {
+        rightArrow.disabled = true;
+        rightArrow.classList.add('disabled');
+      } else {
+        rightArrow.disabled = false;
+        rightArrow.classList.remove('disabled');
+      }
+    }
+  }
+  
+  // Function to make generation title editable
+  function makeGenerationTitleEditable(element) {
+    if (!element) return;
+    
+    // Make it editable
+    element.setAttribute('contenteditable', 'true');
+    element.style.outline = 'none';
+    
+    // Add hover effects
+    element.addEventListener('mouseover', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.5)';
+      this.title = 'Click to edit generation title';
+    });
+    
+    element.addEventListener('mouseout', function() {
+      this.style.backgroundColor = 'transparent';
+    });
+    
+    // Add focus/blur effects
+    element.addEventListener('focus', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.8)';
+    });
+    
+    element.addEventListener('blur', function() {
+      this.style.backgroundColor = 'transparent';
+      
+      // Save to page data
+      if (window.legacySheetPages[window.currentPageIndex]) {
+        window.legacySheetPages[window.currentPageIndex].generationTitle = this.textContent;
+      }
+    });
+    
+    // Prevent Enter key from creating new lines
+    element.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+  }
+  
+  // Initialize multi-page functionality
+  function initMultiPageSupport() {
+    // Setup pages container if needed
+    let pagesContainer = document.getElementById('pages-container');
+    if (!pagesContainer) {
+      // If container doesn't exist, create one and move legacy sheet into it
+      const legacySheet = document.querySelector('.legacy-sheet');
+      if (!legacySheet) return;
+      
+      pagesContainer = document.createElement('div');
+      pagesContainer.id = 'pages-container';
+      pagesContainer.className = 'pages-container';
+      
+      // Replace legacy sheet with pages container
+      legacySheet.parentNode.replaceChild(pagesContainer, legacySheet);
+      
+      // Add legacy sheet to pages container
+      legacySheet.classList.add('page', 'active');
+      legacySheet.id = 'page-0';
+      pagesContainer.appendChild(legacySheet);
+    }
+    
+    // Setup navigation controls
+    setupPageNavigation();
+    
+    // Make initial generation title editable
+    const initialTitle = document.querySelector('.legacy-sheet.page.active .generation-title');
+    makeGenerationTitleEditable(initialTitle);
+    
+    // Store first page data
+    window.legacySheetPages.push({
+      index: 0,
+      generationTitle: initialTitle ? initialTitle.textContent : 'Sixth Generation',
+      personEntries: Array.from(document.querySelectorAll('.person-entry')).map(entry => entry.outerHTML),
+      dividers: Array.from(document.querySelectorAll('.entry-divider')).map(divider => divider.outerHTML),
+      staticTemplateCleared: false
+    });
+    
+    // Update navigation
+    updatePageNavigation();
+    
+    // Add keyboard navigation
+    document.addEventListener('keydown', function(e) {
+      // Only if not editing text
+      if (!isEditingText()) {
+        if (e.key === 'ArrowLeft') {
+          navigateToPrevPage();
+        } else if (e.key === 'ArrowRight') {
+          navigateToNextPage();
+        }
+      }
+    });
+    
+    console.log('Multi-page support initialized');
+  }
+  
+  // Helper to check if user is currently editing text
+  function isEditingText() {
+    const activeElement = document.activeElement;
+    return activeElement.tagName === 'INPUT' || 
+           activeElement.tagName === 'TEXTAREA' || 
+           activeElement.getAttribute('contenteditable') === 'true';
+  }
+  
+  // Update PDF generation for multiple pages
+  const originalSavePdfClick = savePdfBtn.onclick;
+  savePdfBtn.onclick = null;
+  savePdfBtn.addEventListener('click', async function() {
+    // Save current page state
+    saveCurrentPageState();
+    
+    // Remember current page
+    const currentPage = window.currentPageIndex;
+    
+    // Update button state
+    savePdfBtn.textContent = 'Generating PDF...';
+    savePdfBtn.disabled = true;
+    savePdfBtn.style.display = 'none';
+    
+    try {
+      // Initialize PDF
+      const pdf = new jsPDF({
+        unit: 'in',
+        format: 'letter',
+        orientation: 'portrait'
+      });
+      
+      // Process each page
+      for (let i = 0; i < window.legacySheetPages.length; i++) {
+        // Navigate to page to ensure it's visible
+        window.currentPageIndex = i;
+        loadPage(i);
+        updatePageNavigation();
+        
+        // Wait for render
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Capture page
+        const element = document.querySelector('.legacy-sheet.page.active');
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          useCORS: true,
+          scrollY: -window.scrollY,
+          windowWidth: document.documentElement.offsetWidth,
+          windowHeight: document.documentElement.offsetHeight
+        });
+        
+        // Convert to image
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Add new page if not first page
+        if (i > 0) {
+          pdf.addPage();
+        }
+        
+        // Add to PDF
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      }
+      
+      // Save PDF
+      const pdfBlob = pdf.output('blob');
+      saveAs(pdfBlob, 'Legacy-Sheets.pdf');
+      
+      // Return to original page
+      window.currentPageIndex = currentPage;
+      loadPage(currentPage);
+      updatePageNavigation();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    }
+    
+    // Restore button
+    setTimeout(() => {
+      savePdfBtn.style.display = 'block';
+      savePdfBtn.textContent = 'Save PDF';
+      savePdfBtn.disabled = false;
+    }, 1500);
+  });
+  
+  // Initialize multi-page support
+  initMultiPageSupport();
+  
+  // Get the Save PDF button
+  const savePdfBtn = document.getElementById('save-pdf-btn');
+});

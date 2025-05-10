@@ -1,0 +1,511 @@
+// main.js
+// Import libraries for PDF generation with download animation
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import { saveAs } from 'file-saver';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure the PDF.js worker to use a local file
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.min.mjs', import.meta.url).toString();
+
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Legacy Sheet Template loaded successfully');
+  
+  // Multi-page functionality - Global state
+  window.legacyPages = [];
+  window.currentPageIndex = 0;
+  
+  // Create "Add New Page" button
+  function createAddPageButton() {
+    const addPageBtn = document.createElement('button');
+    addPageBtn.id = 'add-page-btn';
+    addPageBtn.className = 'action-button primary-button';
+    addPageBtn.innerHTML = 'Add New Page';
+    addPageBtn.style.marginBottom = '20px';
+    
+    // Add click handler for the button
+    addPageBtn.addEventListener('click', function() {
+      addNewPage();
+    });
+    
+    // Insert it before the Save PDF button
+    const savePdfBtn = document.getElementById('save-pdf-btn');
+    savePdfBtn.parentNode.insertBefore(addPageBtn, savePdfBtn);
+    
+    return addPageBtn;
+  }
+  
+  // Create page navigation controls
+  function createPageNavigation() {
+    const navigation = document.createElement('div');
+    navigation.id = 'page-navigation';
+    navigation.className = 'page-navigation';
+    
+    // Previous page button
+    const prevBtn = document.createElement('button');
+    prevBtn.id = 'prev-page-btn';
+    prevBtn.className = 'nav-arrow left-arrow';
+    prevBtn.innerHTML = '&larr;';
+    prevBtn.disabled = true;
+    prevBtn.title = "Previous Page";
+    prevBtn.addEventListener('click', function() {
+      if (window.currentPageIndex > 0) {
+        navigateToPage(window.currentPageIndex - 1);
+      }
+    });
+    
+    // Page counter
+    const pageCounter = document.createElement('div');
+    pageCounter.id = 'page-counter';
+    pageCounter.className = 'page-indicator';
+    pageCounter.textContent = 'Page 1 of 1';
+    
+    // Next page button
+    const nextBtn = document.createElement('button');
+    nextBtn.id = 'next-page-btn';
+    nextBtn.className = 'nav-arrow right-arrow';
+    nextBtn.innerHTML = '&rarr;';
+    nextBtn.disabled = true;
+    nextBtn.title = "Next Page";
+    nextBtn.addEventListener('click', function() {
+      if (window.currentPageIndex < window.legacyPages.length - 1) {
+        navigateToPage(window.currentPageIndex + 1);
+      }
+    });
+    
+    // Assemble navigation
+    navigation.appendChild(prevBtn);
+    navigation.appendChild(pageCounter);
+    navigation.appendChild(nextBtn);
+    
+    // Insert before the "Add New Page" button
+    const addPageBtn = document.getElementById('add-page-btn');
+    addPageBtn.parentNode.insertBefore(navigation, addPageBtn);
+    
+    return {
+      prevBtn,
+      pageCounter,
+      nextBtn
+    };
+  }
+  
+  // Function to add a new page
+  function addNewPage() {
+    // Save current page state first
+    saveCurrentPageState();
+    
+    // Get the current legacy sheet
+    const currentSheet = document.querySelector('.legacy-sheet');
+    
+    // Create a new page by cloning the empty template
+    const newPage = createEmptyPage();
+    
+    // Add the new page to the DOM (but hide it)
+    currentSheet.parentNode.appendChild(newPage);
+    
+    // Add to our pages array
+    window.legacyPages.push({
+      element: newPage,
+      index: window.legacyPages.length,
+      generationTitle: 'New Generation',
+      personEntries: [],
+      dividers: [],
+      staticTemplateCleared: true
+    });
+    
+    // Navigate to the new page
+    navigateToPage(window.legacyPages.length - 1);
+    
+    // Update the UI
+    updateNavigationControls();
+    
+    console.log('Added new page:', window.currentPageIndex + 1);
+  }
+  
+  // Create an empty page template
+  function createEmptyPage() {
+    // Create a new legacy sheet
+    const newPage = document.createElement('div');
+    newPage.className = 'legacy-sheet';
+    newPage.style.display = 'none'; // Initially hidden
+    
+    // Add basic page structure
+    newPage.innerHTML = `
+      <div class="generation-title" contenteditable="true">New Generation</div>
+      <hr class="horizontal-rule">
+      
+      <!-- Footer -->
+      <div class="footer-line"></div>
+      <div class="footer">
+        <div class="report-name">Sapling Platinum Report</div>
+        <div class="page-number">${window.legacyPages.length + 1}</div>
+      </div>
+    `;
+    
+    // Make generation title editable with hover effect
+    const generationTitle = newPage.querySelector('.generation-title');
+    makeGenerationTitleEditable(generationTitle);
+    
+    return newPage;
+  }
+  
+  // Make a generation title element editable with proper UI
+  function makeGenerationTitleEditable(titleElement) {
+    if (!titleElement) return;
+    
+    // Set contenteditable attribute
+    titleElement.setAttribute('contenteditable', 'true');
+    
+    // Remove outline when focused
+    titleElement.style.outline = 'none';
+    
+    // Add hover effect
+    titleElement.addEventListener('mouseover', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.5)';
+      this.title = 'Click to edit generation title';
+    });
+    
+    titleElement.addEventListener('mouseout', function() {
+      this.style.backgroundColor = 'transparent';
+    });
+    
+    // Add focus/blur effects
+    titleElement.addEventListener('focus', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.8)';
+    });
+    
+    titleElement.addEventListener('blur', function() {
+      this.style.backgroundColor = 'transparent';
+      
+      // Update the stored data
+      if (window.legacyPages[window.currentPageIndex]) {
+        window.legacyPages[window.currentPageIndex].generationTitle = this.textContent;
+      }
+    });
+    
+    // Prevent Enter key from adding new lines
+    titleElement.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur();
+      }
+    });
+  }
+  
+  // Navigate to a specific page
+  function navigateToPage(pageIndex) {
+    if (pageIndex < 0 || pageIndex >= window.legacyPages.length) {
+      console.error('Invalid page index:', pageIndex);
+      return;
+    }
+    
+    // Save current page state
+    saveCurrentPageState();
+    
+    // Hide current page
+    const currentPage = document.querySelectorAll('.legacy-sheet');
+    currentPage.forEach(page => {
+      page.style.display = 'none';
+    });
+    
+    // Show the target page
+    const targetPageData = window.legacyPages[pageIndex];
+    if (targetPageData && targetPageData.element) {
+      targetPageData.element.style.display = 'block';
+      
+      // Update global variables for this page
+      window.currentPageIndex = pageIndex;
+      window.staticTemplateCleared = targetPageData.staticTemplateCleared || false;
+      window.parsedGenealogyData = targetPageData.parsedData || null;
+      
+      // Update page number in footer
+      const pageNumber = targetPageData.element.querySelector('.page-number');
+      if (pageNumber) {
+        pageNumber.textContent = (pageIndex + 1).toString();
+      }
+    }
+    
+    // Update navigation controls
+    updateNavigationControls();
+    
+    console.log('Navigated to page:', pageIndex + 1);
+  }
+  
+  // Save the current page state
+  function saveCurrentPageState() {
+    // Get the current page data
+    const currentPageData = window.legacyPages[window.currentPageIndex];
+    if (!currentPageData) return;
+    
+    // Get the actual DOM element
+    const sheetElement = currentPageData.element || document.querySelector('.legacy-sheet');
+    if (!sheetElement) return;
+    
+    // Save generation title
+    currentPageData.generationTitle = sheetElement.querySelector('.generation-title').textContent;
+    
+    // Save person entries
+    currentPageData.personEntries = Array.from(sheetElement.querySelectorAll('.person-entry')).map(entry => {
+      // Clone the entry to capture its current state
+      return entry.cloneNode(true);
+    });
+    
+    // Save dividers
+    currentPageData.dividers = Array.from(sheetElement.querySelectorAll('.entry-divider')).map(divider => {
+      return divider.cloneNode(true);
+    });
+    
+    // Save template cleared state
+    currentPageData.staticTemplateCleared = window.staticTemplateCleared || false;
+    
+    // Save genealogy data
+    currentPageData.parsedData = window.parsedGenealogyData;
+    
+    console.log('Saved state for page:', window.currentPageIndex + 1);
+  }
+  
+  // Update navigation controls based on current state
+  function updateNavigationControls() {
+    const prevBtn = document.getElementById('prev-page-btn');
+    const nextBtn = document.getElementById('next-page-btn');
+    const pageCounter = document.getElementById('page-counter');
+    
+    if (prevBtn) {
+      prevBtn.disabled = window.currentPageIndex <= 0;
+    }
+    
+    if (nextBtn) {
+      nextBtn.disabled = window.currentPageIndex >= window.legacyPages.length - 1;
+    }
+    
+    if (pageCounter) {
+      pageCounter.textContent = `Page ${window.currentPageIndex + 1} of ${window.legacyPages.length}`;
+    }
+  }
+  
+  // Modified PDF generation to handle multiple pages
+  function generateMultiPagePDF() {
+    // Save current state
+    saveCurrentPageState();
+    
+    // Store original page index
+    const originalPageIndex = window.currentPageIndex;
+    
+    // Update UI
+    savePdfBtn.textContent = 'Generating PDF...';
+    savePdfBtn.disabled = true;
+    savePdfBtn.style.display = 'none';
+    
+    // Create a promise to handle async operations
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Create PDF
+        const pdf = new jsPDF({
+          unit: 'in',
+          format: 'letter',
+          orientation: 'portrait'
+        });
+        
+        // Process each page
+        for (let i = 0; i < window.legacyPages.length; i++) {
+          // Navigate to each page
+          navigateToPage(i);
+          
+          // Wait for the page to render
+          await new Promise(r => setTimeout(r, 300));
+          
+          // Get the element to convert to PDF
+          const element = window.legacyPages[i].element || document.querySelector('.legacy-sheet');
+          
+          // Use html2canvas to capture the legacy sheet
+          const canvas = await html2canvas(element, {
+            scale: 2,  // Higher scale for better quality
+            useCORS: true,
+            scrollY: -window.scrollY,
+            windowWidth: document.documentElement.offsetWidth,
+            windowHeight: document.documentElement.offsetHeight
+          });
+          
+          // Convert canvas to image
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Add a new page if not the first page
+          if (i > 0) {
+            pdf.addPage();
+          }
+          
+          // Calculate dimensions to fit the page correctly
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          
+          // Add image to PDF, sizing to fit the page
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        }
+        
+        // Generate the PDF as blob
+        const pdfBlob = pdf.output('blob');
+        
+        // Use FileSaver to trigger browser download animation
+        saveAs(pdfBlob, 'Legacy-Sheets.pdf');
+        
+        // Return to the original page
+        navigateToPage(originalPageIndex);
+        
+        resolve();
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        reject(error);
+      }
+    }).finally(() => {
+      // Show button again after a short delay
+      setTimeout(() => {
+        savePdfBtn.style.display = 'block';
+        savePdfBtn.textContent = 'Save PDF';
+        savePdfBtn.disabled = false;
+      }, 1500);
+    });
+  }
+  
+  // Setup keyboard navigation
+  function setupKeyboardNavigation() {
+    document.addEventListener('keydown', function(e) {
+      // Only process if no contenteditable element is focused
+      if (!isEditableElementFocused()) {
+        // Left arrow key - previous page
+        if (e.key === 'ArrowLeft') {
+          if (window.currentPageIndex > 0) {
+            navigateToPage(window.currentPageIndex - 1);
+          }
+        }
+        
+        // Right arrow key - next page
+        if (e.key === 'ArrowRight') {
+          if (window.currentPageIndex < window.legacyPages.length - 1) {
+            navigateToPage(window.currentPageIndex + 1);
+          }
+        }
+      }
+    });
+  }
+  
+  // Check if an editable element is currently focused
+  function isEditableElementFocused() {
+    const activeElement = document.activeElement;
+    return activeElement.tagName === 'INPUT' || 
+           activeElement.tagName === 'TEXTAREA' || 
+           activeElement.getAttribute('contenteditable') === 'true';
+  }
+  
+  // Initialize multi-page functionality
+  function initializeMultiPageSupport() {
+    // Create Add Page button
+    createAddPageButton();
+    
+    // Create page navigation
+    createPageNavigation();
+    
+    // Setup keyboard navigation
+    setupKeyboardNavigation();
+    
+    // Initialize the first page
+    const firstPage = document.querySelector('.legacy-sheet');
+    
+    // Make the generation title on the first page editable
+    const firstPageTitle = firstPage.querySelector('.generation-title');
+    makeGenerationTitleEditable(firstPageTitle);
+    
+    // Add the first page to our data structure
+    window.legacyPages.push({
+      element: firstPage,
+      index: 0,
+      generationTitle: firstPageTitle.textContent,
+      personEntries: Array.from(firstPage.querySelectorAll('.person-entry')),
+      dividers: Array.from(firstPage.querySelectorAll('.entry-divider')),
+      staticTemplateCleared: false,
+      parsedData: null
+    });
+    
+    // Override the Save PDF function
+    const savePdfBtn = document.getElementById('save-pdf-btn');
+    const originalClickHandler = savePdfBtn.onclick;
+    savePdfBtn.removeEventListener('click', originalClickHandler);
+    savePdfBtn.addEventListener('click', function() {
+      generateMultiPagePDF();
+    });
+    
+    console.log('Multi-page support initialized');
+  }
+  
+  // Initialize multi-page support
+  initializeMultiPageSupport();
+  
+  // Get the Save PDF button
+  const savePdfBtn = document.getElementById('save-pdf-btn');
+
+  // Original applyDataToTemplate function
+  const originalApplyDataToTemplate = window.applyDataToTemplate;
+
+  // Override with a multi-page aware version
+  window.applyDataToTemplate = function() {
+    if (!window.parsedGenealogyData) {
+      alert('No data available to apply to the template.');
+      return;
+    }
+    
+    const data = window.parsedGenealogyData;
+    
+    // Get the current active page
+    const currentPage = window.legacyPages[window.currentPageIndex];
+    if (!currentPage || !currentPage.element) {
+      console.error('No active page found');
+      return;
+    }
+    
+    const legacySheet = currentPage.element;
+    
+    // Update the generation title only if found
+    if (data.generation) {
+      const generationTitle = legacySheet.querySelector('.generation-title');
+      if (generationTitle) {
+        generationTitle.textContent = data.generation;
+        
+        // Update the stored data
+        currentPage.generationTitle = data.generation;
+      }
+    }
+    
+    // Clear existing person entries ONLY if this is the first time we're applying data to this page
+    // This removes the static template entries but keeps our dynamically added entries
+    if (!window.staticTemplateCleared) {
+      const existingEntries = legacySheet.querySelectorAll('.person-entry');
+      
+      // Remove all person entries and their dynamically added dividers
+      existingEntries.forEach(entry => {
+        const nextSibling = entry.nextElementSibling;
+        // Only remove the next sibling if it's NOT part of the main footer structure
+        if (nextSibling && !nextSibling.classList.contains('footer-line') && !nextSibling.classList.contains('footer')) {
+          nextSibling.remove();
+        }
+        entry.remove(); // Removes the .person-entry
+      });
+      
+      // Mark that we've cleared the static template
+      window.staticTemplateCleared = true;
+      currentPage.staticTemplateCleared = true;
+    }
+    
+    // Process persons one at a time - for our one-person-at-a-time workflow
+    // We'll always process just the first person in the array
+    if (data.persons && data.persons.length > 0) {
+      const person = data.persons[0]; // Get the first person in the array
+      
+      // Rest of the function remains the same, just ensuring all appends happen to the active page
+      
+      // Store the applied data with the current page
+      currentPage.parsedData = data;
+      
+      // Save the current page state
+      saveCurrentPageState();
+    }
+  };
+});
