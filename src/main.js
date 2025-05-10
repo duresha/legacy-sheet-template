@@ -805,6 +805,45 @@ document.addEventListener('DOMContentLoaded', function() {
       const personNumber = document.createElement('div');
       personNumber.className = 'person-number';
       personNumber.textContent = person.number;
+      
+      // Make person number deletable with hover effect
+      personNumber.style.cursor = 'pointer';
+      personNumber.title = 'Click to remove this number';
+      
+      // Add hover effects
+      personNumber.addEventListener('mouseover', function() {
+        this.style.opacity = '0.6';
+        this.style.boxShadow = '0 0 3px rgba(0,0,0,0.2)';
+      });
+      
+      personNumber.addEventListener('mouseout', function() {
+        this.style.opacity = '1';
+        this.style.boxShadow = 'none';
+      });
+      
+      // Add click event to delete the number
+      personNumber.addEventListener('click', function() {
+        // Add transition for smooth fade out
+        this.style.transition = 'opacity 0.3s ease, width 0.3s ease, margin 0.3s ease';
+        this.style.opacity = '0';
+        this.style.width = '0';
+        this.style.margin = '0';
+        this.style.border = 'none';
+        this.style.padding = '0';
+        
+        // Remove the element after transition
+        setTimeout(() => {
+          this.remove();
+          
+          // Adjust the entry padding/margin to maintain alignment
+          personEntry.style.paddingLeft = '0';
+          personContent.style.marginLeft = '0';
+          
+          // Add a subtle transition for content reflow
+          personContent.style.transition = 'margin-left 0.3s ease';
+          personContent.style.marginLeft = '0';
+        }, 300);
+      });
 
       // Person content
       const personContent = document.createElement('div');
@@ -1167,18 +1206,34 @@ document.addEventListener('DOMContentLoaded', function() {
       cursor: pointer;
     }
     
+    /* Add styles for person-number hover states */
+    .person-number {
+      transition: opacity 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+    }
+    
+    .person-number:before {
+      content: '';
+      position: absolute;
+      top: -5px;
+      left: -5px;
+      right: -5px;
+      bottom: -5px;
+      border-radius: 50%;
+      pointer-events: none;
+      transition: background-color 0.2s ease;
+    }
+    
+    .person-number:hover:before {
+      background-color: rgba(0,0,0,0.03);
+    }
+    
     /* Make sure horizontal rule stays fixed regardless of generation title size */
     .generation-title {
       display: block;
       width: auto;
       text-align: center;
       min-height: 40px;
-    }
-    
-    .horizontal-rule {
-      position: relative;
-      width: 2.6in !important;
-      margin: 0 auto 0.412in !important;
     }
     
     /* Theme color for specially formatted text */
