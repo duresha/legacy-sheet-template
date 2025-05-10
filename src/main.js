@@ -877,21 +877,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('Side panel UI reset for next person entry');
     
-    // Check if we should create a new page for the next person
-    if (window.pageManager && window.pageManager.hasDataBeenApplied()) {
-      // Check if the current page already has multiple entries
-      const currentPage = document.querySelector('.legacy-sheet.active-page');
-      if (currentPage) {
-        const existingEntries = currentPage.querySelectorAll('.person-entry');
-        // If there are multiple entries already, suggest creating a new page
-        if (existingEntries.length >= 3) {
-          const createNewPage = confirm("This page already has multiple entries. Would you like to create a new page for the next person?");
-          if (createNewPage && window.pageManager) {
-            window.pageManager.addNewPage();
-          }
-        }
-      }
-    }
+    // Removed automatic page creation confirmation dialog
+    // Users will control page creation manually using the Add Page button
   }
 
   let currentImageFile = null; // To store the currently loaded image file
