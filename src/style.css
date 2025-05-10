@@ -1007,7 +1007,7 @@ a {
     background-color: #d32f2f;
     color: white;
     border: none;
-    margin-left: 5px; /* Reduced since we now have a divider */
+    margin-left: 5px;
     transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -1065,14 +1065,14 @@ a {
     background-color: #4a6572; /* Blue-gray color */
     color: white;
     border: none;
-    margin-right: 5px; /* Spacing on the right since it's on the left side */
+    margin-right: 5px;
     transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .reset-template-button:hover {
-    background-color: #344955; /* Darker shade on hover */
+    background-color: #d32f2f; /* Red color on hover */
     transform: scale(1.05);
-    box-shadow: 0 0 10px rgba(74, 101, 114, 0.5);
+    box-shadow: 0 0 10px rgba(211, 47, 47, 0.5);
 }
 
 .reset-template-button:active {
