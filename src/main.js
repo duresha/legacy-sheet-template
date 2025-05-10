@@ -11,6 +11,49 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.min.mjs', import.
 document.addEventListener('DOMContentLoaded', function() {
   console.log('Legacy Sheet Template loaded successfully');
   
+  // Make generation title editable when document loads
+  const generationTitle = document.querySelector('.generation-title');
+  if (generationTitle) {
+    // Make it editable
+    generationTitle.setAttribute('contenteditable', 'true');
+    
+    // Add styling for better UX when editing
+    generationTitle.style.outline = 'none';
+    generationTitle.style.transition = 'background-color 0.2s ease';
+    
+    // Add hover effect
+    generationTitle.addEventListener('mouseover', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.5)';
+      this.title = 'Click to edit generation title';
+    });
+    
+    generationTitle.addEventListener('mouseout', function() {
+      this.style.backgroundColor = 'transparent';
+    });
+    
+    // Add focus/blur effects
+    generationTitle.addEventListener('focus', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.8)';
+    });
+    
+    generationTitle.addEventListener('blur', function() {
+      this.style.backgroundColor = 'transparent';
+      
+      // Optional: Save the title change to originalTemplateData
+      if (originalTemplateData) {
+        originalTemplateData.generationTitle = this.textContent;
+      }
+    });
+    
+    // Prevent Enter key from creating new lines
+    generationTitle.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur(); // Remove focus when Enter is pressed
+      }
+    });
+  }
+  
   // Get the Save PDF button
   const savePdfBtn = document.getElementById('save-pdf-btn');
   
@@ -1122,6 +1165,20 @@ document.addEventListener('DOMContentLoaded', function() {
     .entry-divider {
       transition: opacity 0.3s ease;
       cursor: pointer;
+    }
+    
+    /* Make sure horizontal rule stays fixed regardless of generation title size */
+    .generation-title {
+      display: block;
+      width: auto;
+      text-align: center;
+      min-height: 40px;
+    }
+    
+    .horizontal-rule {
+      position: relative;
+      width: 2.6in !important;
+      margin: 0 auto 0.412in !important;
     }
     
     /* Styles for main person paragraph */
