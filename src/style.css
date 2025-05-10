@@ -653,7 +653,7 @@ a {
         background: none;
     }
     
-    .app-container, .left-panel, .action-buttons, .pagination-controls {
+    .app-container, .left-panel, .action-buttons, .pagination-controls, .delete-page-button {
         display: none;
     }
     
@@ -999,4 +999,82 @@ a {
 
 .indented-paragraph:hover {
     background-color: rgba(240, 240, 240, 0.5);
+}
+
+/* Delete Page Button */
+.delete-page-button {
+    position: relative;
+    background-color: #d32f2f;
+    color: white;
+    border: none;
+    margin-left: 5px; /* Reduced since we now have a divider */
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.delete-page-button:hover {
+    background-color: #b71c1c;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+}
+
+.delete-page-button:active {
+    transform: scale(0.95);
+}
+
+/* Remove the media queries for the delete button since it's now part of the pagination controls */
+@media screen and (max-width: 1200px) {
+    .delete-page-button {
+        /* No special styling needed */
+    }
+    
+    .delete-page-button:hover {
+        transform: scale(1.05);
+    }
+    
+    .delete-page-button:active {
+        transform: scale(0.95);
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .delete-page-button {
+        /* No special styling needed */
+    }
+    
+    .delete-page-button:hover {
+        transform: scale(1.05);
+    }
+    
+    .delete-page-button:active {
+        transform: scale(0.95);
+    }
+}
+
+/* Pagination divider */
+.pagination-divider {
+    width: 1px;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0.2);
+    margin: 0 10px;
+    align-self: center;
+}
+
+/* Reset Template Button */
+.reset-template-button {
+    position: relative;
+    background-color: #4a6572; /* Blue-gray color */
+    color: white;
+    border: none;
+    margin-right: 5px; /* Spacing on the right since it's on the left side */
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reset-template-button:hover {
+    background-color: #344955; /* Darker shade on hover */
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(74, 101, 114, 0.5);
+}
+
+.reset-template-button:active {
+    transform: scale(0.95);
 }

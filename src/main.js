@@ -23,6 +23,7 @@ class PageManager {
     this.nextPageBtn = document.getElementById('next-page-btn');
     this.pageIndicator = document.getElementById('page-indicator');
     this.addPageBtn = document.getElementById('add-page-btn');
+    this.deletePageBtn = document.getElementById('delete-page-btn');
     
     // Initialize event listeners
     this.initEventListeners();
@@ -49,12 +50,20 @@ class PageManager {
       this.nextPageBtn.addEventListener('click', () => this.navigateToNextPage());
     }
     
+    // Delete page button
+    if (this.deletePageBtn) {
+      this.deletePageBtn.addEventListener('click', () => this.deleteCurrentPage());
+    }
+    
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') {
         this.navigateToPrevPage();
       } else if (e.key === 'ArrowRight') {
         this.navigateToNextPage();
+      } else if (e.key === 'Delete' && e.ctrlKey) {
+        // Add Ctrl+Delete as keyboard shortcut for deleting pages
+        this.deleteCurrentPage();
       }
     });
     
@@ -407,10 +416,114 @@ class PageManager {
       this.addPageBtn.style.display = 'none';
     }
   }
+
+  /**
+   * Delete the current active page
+   */
+  deleteCurrentPage() {
+    // Get all pages
+    const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
+    
+    // Don't delete if there's only one page left
+    if (pages.length <= 1) {
+      alert('Cannot delete the only page. At least one page must remain.');
+      return;
+    }
+    
+    // Ask for confirmation
+    if (!confirm('Are you sure you want to delete this page? This action cannot be undone.')) {
+      return;
+    }
+    
+    // Get the current active page
+    const currentPage = this.pagesContainer.querySelector('.legacy-sheet.active-page');
+    if (!currentPage) return;
+    
+    // Determine the new active page index (previous page or first page if deleting first)
+    let newActiveIndex = this.currentPageIndex > 0 ? this.currentPageIndex - 1 : 1;
+    
+    // Remove the page from the DOM
+    currentPage.remove();
+    
+    // Remove the page data from our pages array
+    if (this.pages[this.currentPageIndex]) {
+      this.pages.splice(this.currentPageIndex, 1);
+    }
+    
+    // Update page indices for all remaining pages
+    pages.forEach((page, index) => {
+      if (index !== this.currentPageIndex) { // Skip the one we just removed
+        const pageIndex = parseInt(page.dataset.pageIndex);
+        if (pageIndex > this.currentPageIndex) {
+          // Decrement indices for pages that came after the deleted one
+          page.dataset.pageIndex = (pageIndex - 1).toString();
+          
+          // Update the page number in the footer
+          const pageNumberElement = page.querySelector('.page-number');
+          if (pageNumberElement) {
+            pageNumberElement.textContent = pageIndex.toString();
+          }
+        }
+      }
+    });
+    
+    // Navigate to the new active page
+    this.setActivePage(newActiveIndex);
+    
+    // Update navigation controls
+    this.updateNavigationButtons();
+    this.updatePageIndicator();
+    
+    // Save state
+    this.saveState();
+    
+    console.log(`Deleted page at index ${this.currentPageIndex}`);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   console.log('Legacy Sheet Template loaded successfully');
+  
+  // Check if we need to show the static template (coming from a reset)
+  const showStaticTemplate = localStorage.getItem('showStaticTemplate');
+  if (showStaticTemplate === 'true') {
+    // Clear the flag so it doesn't persist on future page loads
+    localStorage.removeItem('showStaticTemplate');
+    
+    // Force clearing of any previously saved state
+    localStorage.removeItem('legacySheetState');
+    
+    // Set staticTemplateCleared to false to ensure we see the original template
+    window.staticTemplateCleared = false;
+    
+    // Show a success message
+    const successMessage = document.createElement('div');
+    successMessage.textContent = 'Original template restored';
+    successMessage.style.position = 'fixed';
+    successMessage.style.bottom = '80px';
+    successMessage.style.left = '50%';
+    successMessage.style.transform = 'translateX(-50%)';
+    successMessage.style.padding = '10px 20px';
+    successMessage.style.backgroundColor = 'rgba(40, 167, 69, 0.8)';
+    successMessage.style.color = 'white';
+    successMessage.style.borderRadius = '5px';
+    successMessage.style.fontFamily = "'Public Sans', sans-serif";
+    successMessage.style.fontSize = '14px';
+    successMessage.style.zIndex = '9999';
+    
+    document.body.appendChild(successMessage);
+    
+    // Remove the message after 3 seconds
+    setTimeout(() => {
+      successMessage.style.opacity = '0';
+      successMessage.style.transition = 'opacity 0.5s ease';
+      setTimeout(() => {
+        successMessage.remove();
+      }, 500);
+    }, 3000);
+    
+    console.log('Restored to static template');
+  }
   
   // Initialize the page manager
   const pageManager = new PageManager();
@@ -461,6 +574,59 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+  
+  // Add event listener for the reset template button
+  const resetTemplateBtn = document.getElementById('reset-template-btn');
+  if (resetTemplateBtn) {
+    resetTemplateBtn.addEventListener('click', function() {
+      // Show confirmation dialog
+      if (confirm('Are you sure you want to reset all pages to the initial template state? This will remove all your data and cannot be undone.')) {
+        resetToInitialTemplate();
+      }
+    });
+  }
+  
+  // Function to reset all pages to initial template state
+  function resetToInitialTemplate() {
+    try {
+      // Show a loading message
+      const loadingMessage = document.createElement('div');
+      loadingMessage.textContent = 'Resetting to original template...';
+      loadingMessage.style.position = 'fixed';
+      loadingMessage.style.top = '50%';
+      loadingMessage.style.left = '50%';
+      loadingMessage.style.transform = 'translate(-50%, -50%)';
+      loadingMessage.style.padding = '15px 25px';
+      loadingMessage.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+      loadingMessage.style.color = 'white';
+      loadingMessage.style.borderRadius = '5px';
+      loadingMessage.style.fontFamily = "'Public Sans', sans-serif";
+      loadingMessage.style.fontSize = '16px';
+      loadingMessage.style.zIndex = '10000';
+      
+      document.body.appendChild(loadingMessage);
+      
+      // Create and store a special flag to ensure the original template is shown
+      localStorage.setItem('showStaticTemplate', 'true');
+      
+      // Force a complete reset by clearing all state
+      localStorage.removeItem('legacySheetState');
+      
+      // Reset the staticTemplateCleared flag
+      staticTemplateCleared = false;
+      
+      // Reset global variables that might be causing issues
+      window.parsedGenealogyData = null;
+      
+      // Reload the page to get a fresh start
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (error) {
+      console.error('Error resetting template:', error);
+      alert('There was an error resetting the template. Please try again.');
+    }
+  }
   
   // Set up a mutation observer to make any new generation titles editable
   const pagesContainer = document.getElementById('pages-container');
@@ -1254,6 +1420,12 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
+    // If we detect we're showing the static template after a reset, don't auto-apply
+    if (localStorage.getItem('showStaticTemplate') === 'true') {
+      console.log('Static template mode detected, not auto-applying data');
+      return;
+    }
+
     // Extraction complete
     updateProgressBar(100);
     extractionStatus.textContent = 'Data extraction complete!';
@@ -1306,7 +1478,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Clear existing person entries ONLY if this is the first time we're applying data
     // This removes the static template entries but keeps our dynamically added entries
-    if (!staticTemplateCleared) {
+    if (!staticTemplateCleared && !window.staticTemplateCleared) {
       const existingEntries = legacySheet.querySelectorAll('.person-entry');
       const horizontalRule = legacySheet.querySelector('.horizontal-rule');
 
@@ -1322,6 +1494,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Mark that we've cleared the static template
       staticTemplateCleared = true;
+      window.staticTemplateCleared = true;
     }
 
     // Process persons one at a time - for our one-person-at-a-time workflow
