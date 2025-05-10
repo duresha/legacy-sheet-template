@@ -1145,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Create edit button
     const editBtn = document.createElement('button');
     editBtn.className = 'edit-btn';
+    editBtn.title = 'Edit paragraph'; // Add tooltip
     editBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
     </svg>`;
@@ -1153,9 +1154,68 @@ document.addEventListener('DOMContentLoaded', function() {
       paraDiv.focus(); // Focus the paragraph for editing
     });
     
+    // Create bold button
+    const boldBtn = document.createElement('button');
+    boldBtn.className = 'bold-btn';
+    boldBtn.title = 'Bold text';
+    boldBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+      <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+    </svg>`;
+    boldBtn.addEventListener('click', function(e) {
+      e.stopPropagation(); // Prevent event bubbling
+      e.preventDefault(); // Prevent default
+      
+      // Make sure the paragraph has focus
+      paraDiv.focus();
+      
+      // Check if there's a selection within this paragraph
+      const selection = window.getSelection();
+      
+      // If no selection or collapsed (just a cursor), select all paragraph text
+      if (!selection.rangeCount || selection.isCollapsed) {
+        console.log("No selection, selecting all text");
+        const range = document.createRange();
+        range.selectNodeContents(paraDiv);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // There is a selection, check if it's within our paragraph
+        const range = selection.getRangeAt(0);
+        const selectionParent = range.commonAncestorContainer;
+        
+        if (!paraDiv.contains(selectionParent)) {
+          console.log("Selection outside paragraph, selecting all text");
+          // Selection is outside our paragraph, select all paragraph content instead
+          const newRange = document.createRange();
+          newRange.selectNodeContents(paraDiv);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          console.log("Selection within paragraph, using it");
+          // Selection is already within our paragraph, use it
+        }
+      }
+      
+      // Now apply bold command to the current selection
+      document.execCommand('bold', false, null);
+      
+      // Don't clear selection if user selected specific text
+      // Only clear if we auto-selected the whole paragraph
+      if (!selection.rangeCount || selection.getRangeAt(0).toString().trim() === paraDiv.textContent.trim()) {
+        selection.removeAllRanges();
+      }
+      
+      // Update the raw data with the formatting changes
+      if (person && personContent) {
+        updatePersonRawWithUserBreaks(person, personContent);
+      }
+    });
+    
     // Create delete button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
+    deleteBtn.title = 'Delete paragraph'; // Add tooltip
     deleteBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="3 6 5 6 21 6"></polyline>
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1184,6 +1244,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add buttons to controls
     controls.appendChild(editBtn);
+    controls.appendChild(boldBtn);
     controls.appendChild(deleteBtn);
     
     // Add controls to paragraph
@@ -1211,6 +1272,54 @@ document.addEventListener('DOMContentLoaded', function() {
         updatePersonRawWithUserBreaks(person, personContent);
       }
     });
+    
+    // Add event listeners to check if selection is bold
+    paraDiv.addEventListener('mouseup', checkSelectionFormatting);
+    paraDiv.addEventListener('keyup', checkSelectionFormatting);
+    paraDiv.addEventListener('click', checkSelectionFormatting);
+    paraDiv.addEventListener('focus', checkSelectionFormatting);
+    
+    // Also check formatting on mousedown to handle selection by double/triple clicking
+    paraDiv.addEventListener('mousedown', function(e) {
+      // Slight delay to allow browser to complete the selection process
+      setTimeout(checkSelectionFormatting, 10);
+    });
+    
+    // Add listener for selection changes within the document
+    document.addEventListener('selectionchange', function(e) {
+      // Only process if the paragraph has focus
+      if (document.activeElement === paraDiv) {
+        checkSelectionFormatting();
+      }
+    });
+    
+    // Function to check if current selection is within bold text
+    function checkSelectionFormatting() {
+      const controls = paraDiv.querySelector('.paragraph-controls');
+      if (!controls) return;
+      
+      const boldBtn = controls.querySelector('.bold-btn');
+      if (!boldBtn) return;
+      
+      try {
+        // Only check if this paragraph is active
+        if (document.activeElement !== paraDiv) {
+          boldBtn.classList.remove('active-format');
+          return;
+        }
+        
+        // Simplest check - does the current selection or cursor position have bold formatting
+        const isBold = document.queryCommandState('bold');
+        
+        if (isBold) {
+          boldBtn.classList.add('active-format');
+        } else {
+          boldBtn.classList.remove('active-format');
+        }
+      } catch (e) {
+        console.error('Error checking bold state:', e);
+      }
+    }
     
     // Add hover controls for editing/deleting
     addParagraphControls(paraDiv, person, personContent);

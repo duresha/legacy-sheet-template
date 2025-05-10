@@ -33,6 +33,13 @@ This project provides a precise US Letter (8.5×11") template for genealogical d
 - ✅ One-click PDF export with download animation
 - ✅ Responsive design for different screen sizes
 - ✅ Print-ready styling with proper page breaks
+- **OCR Integration**: Extracts text from uploaded genealogy images
+- **Smart Parsing**: Identifies person entries, names, and relationships
+- **Interactive Editor**: Edit extracted content before generating the final document
+- **PDF Generation**: Save the finalized legacy sheet as a PDF file
+- **Responsive Design**: Works on both desktop and mobile devices
+- **Google Fonts**: Public Sans, Nunito Sans, and custom Roca Two Bold for professional typography
+- **Keyboard Shortcuts**: Use the Enter key to quickly move to the next person entry
 
 ## Getting Started
 

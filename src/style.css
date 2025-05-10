@@ -818,3 +818,26 @@ a {
     border-radius: 3px;
     vertical-align: middle;
 }
+
+/* Styling for active formatting buttons */
+.paragraph-controls button.active-format {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #a85733;
+}
+
+/* Add subtle highlight on hover */
+.paragraph-controls button:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Styles for subparagraph hover controls - Apple UI Style */
+.indented-paragraph {
+    position: relative;
+    transition: background-color 0.2s ease;
+    padding: 4px 6px;
+    border-radius: 3px;
+}
+
+.indented-paragraph:hover {
+    background-color: rgba(240, 240, 240, 0.5);
+}
