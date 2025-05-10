@@ -1069,6 +1069,24 @@ document.addEventListener('DOMContentLoaded', function() {
       background-color: rgba(240, 240, 240, 0.5);
     }
     
+    /* Add style for child number circles - theme-matched styling */
+    .child-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: transparent;
+      border: 1px solid #a85733;
+      font-size: 12px;
+      margin-right: 4px;
+      text-align: center;
+      line-height: 1;
+      font-weight: normal;
+      color: #333;
+    }
+    
     .paragraph-controls {
       position: absolute;
       right: 10px;
@@ -1256,8 +1274,43 @@ document.addEventListener('DOMContentLoaded', function() {
     const paraDiv = document.createElement('div');
     paraDiv.className = 'indented-paragraph';
     
-    // Process and set the content
-    paraDiv.innerHTML = preserveHyperlinks(allSubParagraphText);
+    // Process for children entries - updated regex to match both formats:
+    // 1. "60 i. Christoph Jakob Muller" (number without parentheses)
+    // 2. "(2) v. John Walter Rogers" (number with parentheses)
+    const childEntryPattern = /^(?:\((\d+)\)|(\d+))\s+([ivxlcdm]+)\.\s+([A-ZÅÄÖÜ][a-zåäöü'-]+(?:\s+[A-ZÅÄÖÜ][a-zåäöü'-]+)*)([\s\S]*)/i;
+    let processedText = allSubParagraphText;
+    const childMatch = allSubParagraphText.match(childEntryPattern);
+
+    if (childMatch) {
+      // We found a child entry pattern
+      const childNumber = childMatch[1] || childMatch[2]; // The number (either with or without parentheses)
+      const romanNumeral = childMatch[3]; // The roman numeral
+      const childName = childMatch[4]; // The child's name
+      const restOfText = childMatch[5]; // The rest of the text (details)
+      
+      // Create the HTML with proper formatting
+      let childEntryHtml = '';
+      
+      // Add the circular number regardless of original format
+      childEntryHtml += `<span class="child-number">${childNumber}</span> `;
+      
+      // Add the roman numeral
+      childEntryHtml += `${romanNumeral}. `;
+      
+      // Add the child name in bold
+      childEntryHtml += `<b>${preserveHyperlinks(childName)}</b>`;
+      
+      // Add the rest of the text
+      childEntryHtml += preserveHyperlinks(restOfText);
+      
+      processedText = childEntryHtml;
+    } else {
+      // Not a child entry, just preserve any links
+      processedText = preserveHyperlinks(allSubParagraphText);
+    }
+    
+    // Set the processed content
+    paraDiv.innerHTML = processedText;
     
     // Make it editable
     paraDiv.setAttribute('contenteditable', 'true');
