@@ -153,24 +153,113 @@ class PageManager {
     // First save current page state
     this.saveCurrentPageState();
     
-    // Get the template from the first page and clone it
-    const templatePage = this.pagesContainer.querySelector('.legacy-sheet');
-    if (!templatePage) return;
+    // Create a new blank page instead of cloning the current page
+    const newPage = document.createElement('div');
+    newPage.className = 'legacy-sheet';
     
-    const newPage = templatePage.cloneNode(true);
-    
-    // Reset content but maintain structure
-    this.resetPageContent(newPage);
+    // Add basic page structure with only one generation title
+    newPage.innerHTML = `
+      <div class="generation-title-container">
+        <div class="generation-title" contenteditable="true">New Generation</div>
+        <button class="generation-title-delete-btn">×</button>
+        <hr class="horizontal-rule">
+      </div>
+      
+      <!-- Footer -->
+      <div class="footer-line"></div>
+      <div class="footer">
+        <div class="report-name">Sapling Platinum Report</div>
+        <div class="page-number">1</div>
+      </div>
+    `;
     
     // Set page index and ensure it's not active
     const newIndex = this.pagesContainer.querySelectorAll('.legacy-sheet').length;
     newPage.dataset.pageIndex = newIndex;
-    newPage.classList.remove('active-page');
     
     // Update page number in footer
     const pageNumberElement = newPage.querySelector('.page-number');
     if (pageNumberElement) {
       pageNumberElement.textContent = (newIndex + 1).toString();
+    }
+    
+    // Add deletion functionality to the generation title
+    const deleteButton = newPage.querySelector('.generation-title-delete-btn');
+    const titleContainer = newPage.querySelector('.generation-title-container');
+    const horizontalRule = newPage.querySelector('.horizontal-rule');
+    
+    if (deleteButton && titleContainer) {
+      // Add delete functionality to the delete button
+      deleteButton.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent triggering other click events
+        
+        // Add fade-out effect
+        titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease, height 0.3s ease, margin 0.3s ease';
+        titleContainer.style.opacity = '0';
+        titleContainer.style.transform = 'translateY(-10px)';
+        titleContainer.style.height = '0';
+        titleContainer.style.marginTop = '0';
+        titleContainer.style.marginBottom = '0';
+        titleContainer.style.overflow = 'hidden';
+        
+        // Remove the container after the animation completes
+        setTimeout(() => {
+          titleContainer.remove();
+          
+          // Save state after deletion
+          if (window.pageManager) {
+            window.pageManager.saveCurrentPageState();
+            window.pageManager.saveState();
+          }
+        }, 300);
+      });
+    }
+    
+    if (horizontalRule) {
+      // Add click event to the horizontal rule for deletion
+      horizontalRule.addEventListener('click', function(e) {
+        if (deleteButton) deleteButton.click();
+      });
+    }
+    
+    const generationTitle = newPage.querySelector('.generation-title');
+    if (generationTitle) {
+      // Make it editable with proper styling
+      generationTitle.style.outline = 'none';
+      generationTitle.style.transition = 'background-color 0.2s ease';
+      
+      // Add hover effect
+      generationTitle.addEventListener('mouseover', function() {
+        this.style.backgroundColor = 'rgba(240, 240, 240, 0.5)';
+        this.title = 'Click to edit generation title';
+      });
+      
+      generationTitle.addEventListener('mouseout', function() {
+        this.style.backgroundColor = 'transparent';
+      });
+      
+      // Add focus/blur effects
+      generationTitle.addEventListener('focus', function() {
+        this.style.backgroundColor = 'rgba(240, 240, 240, 0.8)';
+      });
+      
+      generationTitle.addEventListener('blur', function() {
+        this.style.backgroundColor = 'transparent';
+        
+        // Save state when generation title is edited
+        if (window.pageManager) {
+          window.pageManager.saveCurrentPageState();
+          window.pageManager.saveState();
+        }
+      });
+      
+      // Prevent Enter key from creating new lines
+      generationTitle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.blur(); // Remove focus when Enter is pressed
+        }
+      });
     }
     
     // Add to container
@@ -207,6 +296,7 @@ class PageManager {
   /**
    * Reset page content but maintain structure
    * @param {HTMLElement} page - The page element to reset
+   * @deprecated No longer used in addNewPage as we create a new blank page instead
    */
   resetPageContent(page) {
     // Clear person entries but keep header and footer
@@ -217,7 +307,15 @@ class PageManager {
     personEntries.forEach(entry => entry.remove());
     dividers.forEach(divider => divider.remove());
     
-    // Update generation title to be empty or default
+    // Keep only the first generation title container, remove the rest
+    const generationTitleContainers = page.querySelectorAll('.generation-title-container');
+    if (generationTitleContainers.length > 1) {
+      for (let i = 1; i < generationTitleContainers.length; i++) {
+        generationTitleContainers[i].remove();
+      }
+    }
+    
+    // Update the first generation title to default text
     const generationTitle = page.querySelector('.generation-title');
     if (generationTitle) {
       generationTitle.textContent = 'Generation';
@@ -634,6 +732,72 @@ document.addEventListener('DOMContentLoaded', function() {
   // Just get a reference to the existing checkbox
   const nextPersonHasImageCheckbox = document.getElementById('next-person-has-image');
   
+  // Update the structure of existing generation titles to add delete functionality
+  const updateExistingGenerationTitles = function() {
+    // Find all generation titles that don't have proper container structure
+    const allPages = document.querySelectorAll('.legacy-sheet');
+    
+    allPages.forEach(page => {
+      // Find direct generation titles that aren't in a generation-title-container
+      const generationTitle = page.querySelector('.generation-title:not(.generation-title-container .generation-title)');
+      const horizontalRule = generationTitle ? generationTitle.nextElementSibling : null;
+      
+      if (generationTitle && horizontalRule && horizontalRule.classList.contains('horizontal-rule')) {
+        // Create a new container
+        const titleContainer = document.createElement('div');
+        titleContainer.className = 'generation-title-container';
+        
+        // Create delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'generation-title-delete-btn';
+        deleteButton.innerHTML = '×';
+        deleteButton.title = 'Delete generation title';
+        
+        // Add delete functionality
+        deleteButton.addEventListener('click', function(e) {
+          e.stopPropagation();
+          
+          // Add fade-out effect
+          titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease, height 0.3s ease, margin 0.3s ease';
+          titleContainer.style.opacity = '0';
+          titleContainer.style.transform = 'translateY(-10px)';
+          titleContainer.style.height = '0';
+          titleContainer.style.marginTop = '0';
+          titleContainer.style.marginBottom = '0';
+          titleContainer.style.overflow = 'hidden';
+          
+          // Remove after animation
+          setTimeout(() => {
+            titleContainer.remove();
+            
+            // Save state
+            if (window.pageManager) {
+              window.pageManager.saveCurrentPageState();
+              window.pageManager.saveState();
+            }
+          }, 300);
+        });
+        
+        // Add click event to the horizontal rule
+        horizontalRule.addEventListener('click', function(e) {
+          deleteButton.click();
+        });
+        
+        // Replace the original structure
+        const parentNode = generationTitle.parentNode;
+        parentNode.insertBefore(titleContainer, generationTitle);
+        
+        // Move existing elements into container
+        titleContainer.appendChild(generationTitle);
+        titleContainer.appendChild(deleteButton);
+        titleContainer.appendChild(horizontalRule);
+      }
+    });
+  };
+  
+  // Call the function to update existing titles
+  updateExistingGenerationTitles();
+  
   // Make generation title editable when document loads
   const generationTitles = document.querySelectorAll('.generation-title');
   generationTitles.forEach(generationTitle => {
@@ -748,7 +912,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (mutation.addedNodes.length) {
           mutation.addedNodes.forEach(node => {
             if (node.classList && node.classList.contains('legacy-sheet')) {
-              // Process generation title
+              // Call the function to update generation titles for new pages
+              updateExistingGenerationTitles();
+              
+              // Process generation title that might not have been caught by updateExistingGenerationTitles
               const newTitle = node.querySelector('.generation-title');
               if (newTitle) {
                 // Make it editable
@@ -3250,54 +3417,92 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   /**
-   * Creates and inserts a new generation title at the specified position
-   * @param {HTMLElement} container - The legacy sheet container
-   * @param {HTMLElement} insertAfter - The element to insert after (optional)
-   */
-  function insertGenerationTitle(container, insertAfter = null) {
-    // Create the generation title elements
-    const titleContainer = document.createElement('div');
-    titleContainer.className = 'generation-title-container';
+ * Creates and inserts a new generation title at the specified position
+ * @param {HTMLElement} container - The legacy sheet container
+ * @param {HTMLElement} insertAfter - The element to insert after (optional)
+ */
+function insertGenerationTitle(container, insertAfter = null) {
+  // Create the generation title elements
+  const titleContainer = document.createElement('div');
+  titleContainer.className = 'generation-title-container';
+  
+  const generationTitle = document.createElement('div');
+  generationTitle.className = 'generation-title';
+  generationTitle.textContent = 'New Generation';
+  generationTitle.setAttribute('contenteditable', 'true');
+  
+  const horizontalRule = document.createElement('hr');
+  horizontalRule.className = 'horizontal-rule';
+  
+  // Create delete button for the generation title
+  const deleteButton = document.createElement('button');
+  deleteButton.className = 'generation-title-delete-btn';
+  deleteButton.innerHTML = '×';
+  deleteButton.title = 'Delete generation title';
+  
+  // Add delete functionality to the delete button
+  deleteButton.addEventListener('click', function(e) {
+    e.stopPropagation(); // Prevent triggering other click events
     
-    const generationTitle = document.createElement('div');
-    generationTitle.className = 'generation-title';
-    generationTitle.textContent = 'New Generation';
-    generationTitle.setAttribute('contenteditable', 'true');
-    
-    const horizontalRule = document.createElement('hr');
-    horizontalRule.className = 'horizontal-rule';
-    
-    // Add them to the container
-    titleContainer.appendChild(generationTitle);
-    titleContainer.appendChild(horizontalRule);
-    
-    // Create a fade-in animation effect
+    // Add fade-out effect
+    titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease, height 0.3s ease, margin 0.3s ease';
     titleContainer.style.opacity = '0';
     titleContainer.style.transform = 'translateY(-10px)';
-    titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    titleContainer.style.height = '0';
+    titleContainer.style.marginTop = '0';
+    titleContainer.style.marginBottom = '0';
+    titleContainer.style.overflow = 'hidden';
     
-    // Position the new title elements
-    if (insertAfter) {
-      // Insert after the specified element
-      if (insertAfter.nextElementSibling) {
-        container.insertBefore(titleContainer, insertAfter.nextElementSibling);
+    // Remove the container after the animation completes
+    setTimeout(() => {
+      titleContainer.remove();
+      
+      // Save state after deletion
+      if (window.pageManager) {
+        window.pageManager.saveCurrentPageState();
+        window.pageManager.saveState();
+      }
+    }, 300);
+  });
+  
+  // Add click event to the horizontal rule for deletion
+  horizontalRule.addEventListener('click', function(e) {
+    // Since the horizontal rule is part of the title container, just trigger the delete button click
+    deleteButton.click();
+  });
+  
+  // Add elements to the container
+  titleContainer.appendChild(generationTitle);
+  titleContainer.appendChild(deleteButton);
+  titleContainer.appendChild(horizontalRule);
+  
+  // Create a fade-in animation effect
+  titleContainer.style.opacity = '0';
+  titleContainer.style.transform = 'translateY(-10px)';
+  titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+  
+  // Position the new title elements
+  if (insertAfter) {
+    // Insert after the specified element
+    if (insertAfter.nextElementSibling) {
+      container.insertBefore(titleContainer, insertAfter.nextElementSibling);
+    } else {
+      container.appendChild(titleContainer);
+    }
+  } else {
+    // If no position specified, add at the beginning (after existing title if any)
+    const existingTitle = container.querySelector('.generation-title');
+    if (existingTitle) {
+      const existingTitleContainer = existingTitle.closest('.generation-title-container');
+      if (existingTitleContainer && existingTitleContainer.nextElementSibling) {
+        container.insertBefore(titleContainer, existingTitleContainer.nextElementSibling);
       } else {
         container.appendChild(titleContainer);
       }
     } else {
-      // If no position specified, add at the beginning (after existing title if any)
-      const existingTitle = container.querySelector('.generation-title');
-      if (existingTitle) {
-        const existingRule = existingTitle.nextElementSibling;
-        if (existingRule && existingRule.nextElementSibling) {
-          container.insertBefore(titleContainer, existingRule.nextElementSibling);
-        } else {
-          container.appendChild(titleContainer);
-        }
-      } else {
-        container.prepend(titleContainer);
-      }
+      container.prepend(titleContainer);
     }
+  }
     
     // Make the generation title editable
     // Add styling for better UX when editing
@@ -3448,16 +3653,87 @@ document.addEventListener('DOMContentLoaded', function() {
     element.appendChild(insertControl);
   }
 
-  // Setup mutation observer to add insertion controls to new elements
+  // Setup mutation observer to add insertion controls to new elements and handle generation titles
   function setupInsertionControlsObserver() {
     const observer = new MutationObserver(mutations => {
       mutations.forEach(mutation => {
         if (mutation.addedNodes.length) {
           mutation.addedNodes.forEach(node => {
-            // Check if node is an Element and has the right class
+            // Check if node is an Element
             if (node.nodeType === 1) {
+              // Add insertion controls to person entries and dividers
               if (node.classList.contains('person-entry') || node.classList.contains('entry-divider')) {
                 addInsertionControl(node);
+              }
+              
+              // Handle new pages
+              if (node.classList.contains('legacy-sheet')) {
+                // Add insertion controls to person entries and dividers in the new page
+                const personEntries = node.querySelectorAll('.person-entry');
+                const entryDividers = node.querySelectorAll('.entry-divider');
+                
+                personEntries.forEach(entry => {
+                  addInsertionControl(entry);
+                });
+                
+                entryDividers.forEach(divider => {
+                  addInsertionControl(divider);
+                });
+                
+                // Make sure all generation titles in the new page have delete buttons
+                const generationTitles = node.querySelectorAll('.generation-title-container');
+                generationTitles.forEach(titleContainer => {
+                  // Check if this container already has a delete button
+                  if (!titleContainer.querySelector('.generation-title-delete-btn')) {
+                    // Create and add a delete button
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'generation-title-delete-btn';
+                    deleteButton.innerHTML = '×';
+                    deleteButton.title = 'Delete generation title';
+                    
+                    // Add delete functionality to the delete button
+                    deleteButton.addEventListener('click', function(e) {
+                      e.stopPropagation(); // Prevent triggering other click events
+                      
+                      // Add fade-out effect
+                      titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease, height 0.3s ease, margin 0.3s ease';
+                      titleContainer.style.opacity = '0';
+                      titleContainer.style.transform = 'translateY(-10px)';
+                      titleContainer.style.height = '0';
+                      titleContainer.style.marginTop = '0';
+                      titleContainer.style.marginBottom = '0';
+                      titleContainer.style.overflow = 'hidden';
+                      
+                      // Remove the container after the animation completes
+                      setTimeout(() => {
+                        titleContainer.remove();
+                        
+                        // Save state after deletion
+                        if (window.pageManager) {
+                          window.pageManager.saveCurrentPageState();
+                          window.pageManager.saveState();
+                        }
+                      }, 300);
+                    });
+                    
+                    // Add the delete button to the title container
+                    const generationTitle = titleContainer.querySelector('.generation-title');
+                    if (generationTitle) {
+                      titleContainer.insertBefore(deleteButton, generationTitle.nextSibling);
+                    } else {
+                      titleContainer.appendChild(deleteButton);
+                    }
+                    
+                    // Add click event to the horizontal rule for deletion
+                    const horizontalRule = titleContainer.querySelector('.horizontal-rule');
+                    if (horizontalRule) {
+                      horizontalRule.addEventListener('click', function(e) {
+                        // Trigger the delete button click
+                        deleteButton.click();
+                      });
+                    }
+                  }
+                });
               }
             }
           });

@@ -360,6 +360,34 @@ body {
     background-color: #2f3d22; /* Line color: #2f3d22 as specified */
     width: 2.6in; /* Fixed width of 2.6 inches as mentioned in Canva */
     margin: 0 auto 0.412in; /* Bottom padding of 0.412 inches before content starts */
+    position: relative; /* For positioning delete indicator */
+    cursor: pointer; /* Indicate it's clickable */
+    transition: opacity 0.3s ease, background-color 0.2s ease;
+}
+
+.horizontal-rule:hover {
+    background-color: #596c4a; /* Lighter shade to indicate hover */
+}
+
+.horizontal-rule::after {
+    content: 'Click to remove';
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #666;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.horizontal-rule:hover::after {
+    opacity: 1;
 }
 
 .entry-divider {
@@ -1124,6 +1152,41 @@ a {
     margin-top: 25px;
     margin-bottom: 25px;
     width: 100%;
+    position: relative; /* Required for absolute positioning of delete button */
+}
+
+/* Generation title hover and delete controls */
+.generation-title-container:hover .generation-title-delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.generation-title-delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: rgba(220, 53, 69, 0.9);
+    color: white;
+    border: none;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+}
+
+.generation-title-delete-btn:hover {
+    background-color: rgba(220, 53, 69, 1);
+    transform: scale(1.1) !important;
 }
 
 /* Insert controls for adding generation titles */
