@@ -627,6 +627,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const pageManager = new PageManager();
   window.pageManager = pageManager; // Make it globally accessible
   
+  // Add the "Next person has an image" checkbox to the upload area
+  const uploadContainer = document.querySelector('.upload-container');
+  
+  // We skip dynamically creating the checkbox since it already exists in the HTML
+  // Just get a reference to the existing checkbox
+  const nextPersonHasImageCheckbox = document.getElementById('next-person-has-image');
+  
   // Make generation title editable when document loads
   const generationTitles = document.querySelectorAll('.generation-title');
   generationTitles.forEach(generationTitle => {
@@ -896,6 +903,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const removeImageBtn = document.getElementById('remove-image-btn');
   const extractDataBtn = document.getElementById('extract-data-btn');
   const imagePreviewThumb = document.getElementById('image-preview-thumb');
+  // We're using the global nextPersonHasImageCheckbox reference instead
 
   // Track if we've already cleared the static template
   let staticTemplateCleared = false;
@@ -953,8 +961,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Reset extraction status
     extractionStatus.textContent = 'Waiting for Image...';
     
-    // Clear extracted data
+    // Clear extracted data and reset "Has Image" checkbox
     dataPreview.innerHTML = '<p class="no-data-message">No data extracted yet</p>';
+    
+    // Reset the "Next person has an image" checkbox
+    if (nextPersonHasImageCheckbox) {
+      nextPersonHasImageCheckbox.checked = false;
+    }
     
     // Reset button states (Apply button is now hidden)
     extractDataBtn.style.display = 'none';
@@ -974,9 +987,6 @@ document.addEventListener('DOMContentLoaded', function() {
     removeImageBtn.style.display = 'none';
     
     console.log('Side panel UI reset for next person entry');
-    
-    // Removed automatic page creation confirmation dialog
-    // Users will control page creation manually using the Add Page button
   }
 
   let currentImageFile = null; // To store the currently loaded image file
@@ -1717,6 +1727,122 @@ document.addEventListener('DOMContentLoaded', function() {
           mainParagraphDiv.addEventListener('click', checkSelectionFormatting);
           mainParagraphDiv.addEventListener('focus', checkSelectionFormatting);
           
+          // Add hover controls for editing/deleting
+          addParagraphControls(mainParagraphDiv, person, personContent);
+          
+          personContent.appendChild(mainParagraphDiv);
+          
+          // Check if the next person has an image using our HTML checkbox
+          if (nextPersonHasImageCheckbox && nextPersonHasImageCheckbox.checked) {
+            // Create image placeholder
+            const personImagePlaceholder = document.createElement('div');
+            personImagePlaceholder.className = 'person-image-placeholder';
+            personImagePlaceholder.innerHTML = `
+              <svg width="180" height="220" xmlns="http://www.w3.org/2000/svg">
+                <rect width="180" height="220" fill="#F0F0F0" stroke="#CCC" stroke-width="2" stroke-dasharray="5,5"/>
+                <text x="90" y="100" font-family="Arial" font-size="16" text-anchor="middle" fill="#666">Click to add</text>
+                <text x="90" y="120" font-family="Arial" font-size="16" text-anchor="middle" fill="#666">person image</text>
+                <text x="90" y="140" font-family="Arial" font-size="14" text-anchor="middle" fill="#666">📷</text>
+              </svg>
+            `;
+            
+            // Add click event to open file picker
+            personImagePlaceholder.addEventListener('click', function() {
+              // Create a temporary file input element
+              const fileInput = document.createElement('input');
+              fileInput.type = 'file';
+              fileInput.accept = 'image/*';
+              
+              // Listen for file selection
+              fileInput.addEventListener('change', function() {
+                if (fileInput.files && fileInput.files[0]) {
+                  const selectedFile = fileInput.files[0];
+                  
+                  // Create image element to replace placeholder
+                  const personImage = document.createElement('img');
+                  personImage.className = 'person-image';
+                  personImage.alt = person.name || 'Person image';
+                  
+                  // Create an object URL for the selected file
+                  const objectURL = URL.createObjectURL(selectedFile);
+                  personImage.src = objectURL;
+                  
+                  // Create a container for the image and delete button
+                  const imageContainer = document.createElement('div');
+                  imageContainer.className = 'person-image-container';
+                  
+                  // Create delete button
+                  const deleteButton = document.createElement('button');
+                  deleteButton.className = 'person-image-delete-btn';
+                  deleteButton.innerHTML = '×';
+                  deleteButton.title = 'Remove image';
+                  
+                  // Add click event to delete button
+                  deleteButton.addEventListener('click', function(e) {
+                    e.stopPropagation(); // Prevent triggering image click
+                    
+                    // Revoke object URL to prevent memory leaks
+                    URL.revokeObjectURL(personImage.src);
+                    
+                    // Remove the container
+                    imageContainer.remove();
+                    
+                    // Save state after removing the image
+                    if (window.pageManager) {
+                      window.pageManager.saveCurrentPageState();
+                      window.pageManager.saveState();
+                    }
+                  });
+                  
+                  // Add image and delete button to container
+                  imageContainer.appendChild(personImage);
+                  imageContainer.appendChild(deleteButton);
+                  
+                  // Replace placeholder with container
+                  personImagePlaceholder.parentNode.replaceChild(imageContainer, personImagePlaceholder);
+                  
+                  // Add click event to the image to allow replacing it
+                  personImage.addEventListener('click', function() {
+                    const newFileInput = document.createElement('input');
+                    newFileInput.type = 'file';
+                    newFileInput.accept = 'image/*';
+                    
+                    newFileInput.addEventListener('change', function() {
+                      if (newFileInput.files && newFileInput.files[0]) {
+                        // Revoke the old object URL to prevent memory leaks
+                        URL.revokeObjectURL(personImage.src);
+                        
+                        // Create a new object URL for the new file
+                        const newObjectURL = URL.createObjectURL(newFileInput.files[0]);
+                        personImage.src = newObjectURL;
+                        
+                        // Save state after changing the image
+                        if (window.pageManager) {
+                          window.pageManager.saveCurrentPageState();
+                          window.pageManager.saveState();
+                        }
+                      }
+                    });
+                    
+                    newFileInput.click();
+                  });
+                  
+                  // Save state after adding the image
+                  if (window.pageManager) {
+                    window.pageManager.saveCurrentPageState();
+                    window.pageManager.saveState();
+                  }
+                }
+              });
+              
+              // Trigger file selection dialog
+              fileInput.click();
+            });
+            
+            // Add the placeholder to person content before the subparagraphs
+            personContent.insertBefore(personImagePlaceholder, mainParagraphDiv.nextSibling);
+          }
+          
           // Also check formatting on mousedown to handle selection by double/triple clicking
           mainParagraphDiv.addEventListener('mousedown', function(e) {
             // Slight delay to allow browser to complete the selection process
@@ -1758,11 +1884,6 @@ document.addEventListener('DOMContentLoaded', function() {
               console.error('Error checking bold state:', e);
             }
           }
-          
-          // Add hover controls for editing/deleting
-          addParagraphControls(mainParagraphDiv, person, personContent);
-          
-          personContent.appendChild(mainParagraphDiv);
           
           // Process subsequent distinct paragraphs (indented)
           while (lineIndex < rawLines.length) {
@@ -2081,6 +2202,83 @@ document.addEventListener('DOMContentLoaded', function() {
       background-color: rgba(240, 240, 240, 0.5);
     }
     
+    /* Person image placeholder styling */
+    .person-image-placeholder {
+      float: right;
+      width: 180px;
+      height: 220px;
+      margin-left: 0.145in;
+      margin-bottom: 10px;
+      margin-top: -32px;
+      cursor: pointer;
+      border-radius: 10%;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+    
+    .person-image-placeholder:hover {
+      background-color: #f5f5f5;
+      transform: scale(1.02);
+    }
+    
+    /* Container for person image and delete button */
+    .person-image-container {
+      float: right;
+      position: relative;
+      margin-left: 0.145in;
+      margin-bottom: 10px;
+      margin-top: -32px;
+      border-radius: 10%;
+    }
+    
+    /* Delete button for person image */
+    .person-image-delete-btn {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background-color: rgba(220, 53, 69, 0.9);
+      color: white;
+      border: none;
+      font-size: 18px;
+      line-height: 1;
+      padding: 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    
+    .person-image-container:hover .person-image-delete-btn {
+      opacity: 1;
+      transform: scale(1);
+    }
+    
+    .person-image-delete-btn:hover {
+      background-color: rgba(220, 53, 69, 1);
+    }
+    
+    /* Style for person image */
+    .person-image {
+      max-width: 180px;
+      max-height: 220px;
+      width: auto;
+      height: auto;
+      border-radius: 10%;
+      object-fit: contain;
+      cursor: pointer;
+    }
+    
+    .person-image:hover {
+      opacity: 0.9;
+      transform: scale(1.02);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    
     /* Add style for child number circles - improved to handle large numbers */
     .child-number {
       display: inline-flex;
@@ -2171,6 +2369,13 @@ document.addEventListener('DOMContentLoaded', function() {
     .paragraph-controls button:last-child {
       border-top-right-radius: 14px;
       border-bottom-right-radius: 14px;
+    }
+    
+    /* "Has image" checkbox styling */
+    .has-image-checkbox {
+      accent-color: #a85733;
+      width: 16px;
+      height: 16px;
     }
   `;
   document.head.appendChild(fadeTransitionStyle);
@@ -2532,4 +2737,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   });
+
+  // Insert the checkbox container after the upload preview
+  uploadPreview.insertAdjacentElement('afterend', hasImageCheckboxContainer);
 });
