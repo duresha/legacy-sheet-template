@@ -106,3 +106,50 @@ legacies/
 ## License
 
 ISC
+
+## State Persistence and Sharing
+
+The application supports robust state persistence across different instances and users. This allows multiple users to collaborate on the same document by sharing their work.
+
+### Automatic State Persistence
+
+The state is automatically saved:
+- When clicking the Save button in the pagination controls
+- When the application is closed (beforeunload event)
+- Every 5 minutes (auto-save)
+
+### Sharing Your Progress
+
+When you want to share your progress with another user:
+
+1. First, save your state by clicking the Save button in the pagination controls
+2. Then, run one of these commands:
+
+```bash
+# Export with auto-generated filename
+npm run export-state
+
+# Export with specific filename
+npm run export-state -- my-project.json
+```
+
+3. Share the exported JSON file with your collaborator
+
+### Importing a Shared State
+
+To continue from where another user left off:
+
+1. Receive the JSON state file from your collaborator
+2. Run the import command:
+
+```bash
+# Import from a specific file
+npm run import-state -- path/to/state-file.json
+```
+
+3. Start the application with `npm run dev`
+4. The application will load with all the pages and formatting from the shared state
+
+### Resetting to Default
+
+If you want to reset to the default template, use the Reset button in the pagination controls.

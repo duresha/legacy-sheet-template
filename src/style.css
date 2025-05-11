@@ -1110,6 +1110,48 @@ a {
     transform: scale(0.95);
 }
 
+/* Save State Button */
+.save-state-button {
+    position: relative;
+    background-color: #2f3d22; /* Match other buttons */
+    color: white;
+    border: none;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.save-state-button:hover {
+    background-color: #44693a; /* Lighter green on hover */
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(68, 105, 58, 0.5);
+}
+
+.save-state-button:active {
+    transform: scale(0.95);
+}
+
+.save-state-button.button-saving {
+    background-color: #708e66; /* Light green while saving */
+    animation: saving-pulse 1.5s infinite;
+    pointer-events: none; /* Prevent clicking while saving */
+}
+
+.save-state-button.button-success {
+    background-color: #4CAF50; /* Success green */
+    animation: save-pulse 1s;
+}
+
+@keyframes saving-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.95); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes save-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.5); }
+    70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
 /* Page jump form within page indicator */
 .page-jump-form {
     display: flex;
@@ -1259,4 +1301,36 @@ a {
     0% { transform: scale(1); box-shadow: 0 0 0 rgba(58, 133, 80, 0); }
     50% { transform: scale(1.1); box-shadow: 0 0 10px rgba(58, 133, 80, 0.5); }
     100% { transform: scale(1); box-shadow: 0 0 0 rgba(58, 133, 80, 0); }
+}
+
+/* Save/Load Toast Notification */
+.save-load-notification {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(47, 61, 34, 0.9);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    font-family: 'Public Sans', sans-serif;
+    font-size: 14px;
+    z-index: 1100;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.save-load-notification.visible {
+    opacity: 1;
+}
+
+.save-load-notification-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }

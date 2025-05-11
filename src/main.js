@@ -24,6 +24,7 @@ class PageManager {
     this.pageIndicator = document.getElementById('page-indicator');
     this.addPageBtn = document.getElementById('add-page-btn');
     this.deletePageBtn = document.getElementById('delete-page-btn');
+    this.saveStateBtn = document.getElementById('save-state-btn');
     
     // Initialize event listeners
     this.initEventListeners();
@@ -53,6 +54,11 @@ class PageManager {
     // Delete page button
     if (this.deletePageBtn) {
       this.deletePageBtn.addEventListener('click', () => this.deleteCurrentPage());
+    }
+    
+    // Save state button
+    if (this.saveStateBtn) {
+      this.saveStateBtn.addEventListener('click', () => this.manualSaveState());
     }
     
     // Page jump functionality
@@ -116,6 +122,12 @@ class PageManager {
     window.addEventListener('beforeunload', () => {
       this.saveState();
     });
+    
+    // Also add a periodic auto-save every 5 minutes
+    setInterval(() => {
+      this.saveState();
+      console.log('Auto-save completed');
+    }, 5 * 60 * 1000);
   }
   
   /**
@@ -463,7 +475,49 @@ class PageManager {
   }
   
   /**
-   * Save all page states to localStorage
+   * Save all page states with visual feedback
+   */
+  manualSaveState() {
+    // Show saving indicator
+    if (this.saveStateBtn) {
+      this.saveStateBtn.classList.add('button-saving');
+      this.saveStateBtn.disabled = true;
+    }
+    
+    // Show initial toast notification
+    this.showSaveLoadNotification('Saving document...');
+    
+    // Save the state (now includes server saving)
+    this.saveState();
+    
+    // Add a delay to ensure server save has time to complete
+    setTimeout(() => {
+      // Show success feedback after a short delay
+      if (this.saveStateBtn) {
+        this.saveStateBtn.classList.remove('button-saving');
+        this.saveStateBtn.classList.add('button-success');
+        this.saveStateBtn.disabled = false;
+        
+        setTimeout(() => {
+          this.saveStateBtn.classList.remove('button-success');
+        }, 1000);
+      }
+      
+      // Show success toast notification
+      const formattedDate = new Date().toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      this.showSaveLoadNotification(`Document saved at ${formattedDate}`);
+      
+      console.log('Manual save completed with UI feedback');
+    }, 500); // Wait 500ms to ensure server save has time to complete
+  }
+  
+  /**
+   * Save all page states persistently
    */
   saveState() {
     // Save current page first
@@ -473,64 +527,207 @@ class PageManager {
     const state = {
       pages: this.pages,
       currentPageIndex: this.currentPageIndex,
-      isDataApplied: this.isDataApplied
+      isDataApplied: this.isDataApplied,
+      savedAt: new Date().toISOString() // Add timestamp for UI feedback
     };
     
-    // Save to localStorage
+    // Save to both localStorage (for same-session persistence) and to file (for cross-session persistence)
     try {
+      // First save to localStorage as a fallback
       localStorage.setItem('legacySheetState', JSON.stringify(state));
-      console.log('State saved successfully');
+      
+      // Then save to the server
+      fetch('/api/save-state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(state)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          console.log('State saved to server successfully at ' + state.savedAt);
+        } else {
+          console.error('Server error saving state:', data.error);
+          // If server save fails, at least we have the localStorage backup
+        }
+      })
+      .catch(error => {
+        console.error('Network error saving state:', error);
+        // If server save fails, at least we have the localStorage backup
+      });
+      
+      console.log('State saved successfully at ' + state.savedAt);
     } catch (e) {
       console.error('Error saving state:', e);
+      if (e.name === 'QuotaExceededError') {
+        alert('Error: Storage quota exceeded. The document may be too large to save in browser storage.');
+      }
     }
   }
   
   /**
-   * Load page states from localStorage
+   * Load page states from server and fall back to localStorage
    */
   loadState() {
+    // Skip loading state if we just restored the template
+    if (window.preventAutoDataApplyAfterReset) {
+      console.log('Skipping state load after template reset');
+      return;
+    }
+    
+    // First try to load from the server
+    this.loadStateFromServer().catch(error => {
+      console.error('Failed to load state from server:', error);
+      console.log('Falling back to localStorage...');
+      // Fall back to localStorage
+      this.loadStateFromLocalStorage();
+    });
+  }
+  
+  /**
+   * Load page states from the server API
+   */
+  async loadStateFromServer() {
     try {
+      // Skip if we're showing static template after reset
+      if (window.preventAutoDataApplyAfterReset) {
+        console.log('Skipping server state load after template reset');
+        return false;
+      }
+      
+      // Show loading indicator
+      this.showSaveLoadNotification('Loading document...');
+      
+      // Fetch state from the server
+      const response = await fetch('/api/load-state');
+      
+      // Check if the request was successful
+      if (!response.ok) {
+        // If server returns 404 (no state found), fall back to localStorage
+        if (response.status === 404) {
+          console.log('No saved state found on server');
+          return this.loadStateFromLocalStorage();
+        }
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
+      
+      // Parse the state data
+      const state = await response.json();
+      
+      // Apply the state
+      this.applyLoadedState(state);
+      
+      // Log success
+      console.log('State loaded successfully from server');
+      
+      // Return true to indicate success
+      return true;
+    } catch (error) {
+      console.error('Error loading state from server:', error);
+      // Re-throw the error so the caller can fall back to localStorage
+      throw error;
+    }
+  }
+  
+  /**
+   * Load page states from localStorage as a fallback
+   */
+  loadStateFromLocalStorage() {
+    try {
+      // Skip if we're showing static template after reset
+      if (window.preventAutoDataApplyAfterReset) {
+        console.log('Skipping localStorage state load after template reset');
+        return false;
+      }
+      
       const savedState = localStorage.getItem('legacySheetState');
       if (savedState) {
         const state = JSON.parse(savedState);
         
-        // Restore pages if we have saved pages
-        if (state.pages && state.pages.length > 0) {
-          // Clear existing pages except the first one
-          const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
-          for (let i = 1; i < pages.length; i++) {
-            pages[i].remove();
-          }
-          
-          // Restore first page
-          const firstPage = this.pagesContainer.querySelector('.legacy-sheet');
-          if (firstPage && state.pages[0]) {
-            firstPage.innerHTML = state.pages[0].html;
-            firstPage.dataset.pageIndex = state.pages[0].pageIndex;
-          }
-          
-          // Add additional pages
-          for (let i = 1; i < state.pages.length; i++) {
-            const pageData = state.pages[i];
-            const newPage = firstPage.cloneNode(false); // clone without children
-            newPage.innerHTML = pageData.html;
-            newPage.dataset.pageIndex = pageData.pageIndex;
-            newPage.classList.remove('active-page');
-            this.pagesContainer.appendChild(newPage);
-          }
-          
-          // Set the active page
-          this.currentPageIndex = state.currentPageIndex || 0;
-          this.setActivePage(this.currentPageIndex);
-          
-          // Set data applied flag
-          this.isDataApplied = state.isDataApplied || false;
-          
-          console.log('State restored successfully');
-        }
+        // Apply the state
+        return this.applyLoadedState(state);
+      } else {
+        console.log('No saved state found in localStorage');
+        return false;
       }
     } catch (e) {
-      console.error('Error loading state:', e);
+      console.error('Error loading state from localStorage:', e);
+      return false;
+    }
+  }
+  
+  /**
+   * Apply a loaded state object to the application
+   * @param {Object} state - The state object to apply
+   * @returns {boolean} - Whether the state was applied successfully
+   */
+  applyLoadedState(state) {
+    try {
+      // Restore pages if we have saved pages
+      if (state.pages && state.pages.length > 0) {
+        // Clear existing pages except the first one
+        const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
+        for (let i = 1; i < pages.length; i++) {
+          pages[i].remove();
+        }
+        
+        // Restore first page
+        const firstPage = this.pagesContainer.querySelector('.legacy-sheet');
+        if (firstPage && state.pages[0]) {
+          firstPage.innerHTML = state.pages[0].html;
+          firstPage.dataset.pageIndex = state.pages[0].pageIndex;
+        }
+        
+        // Add additional pages
+        for (let i = 1; i < state.pages.length; i++) {
+          const pageData = state.pages[i];
+          const newPage = firstPage.cloneNode(false); // clone without children
+          newPage.innerHTML = pageData.html;
+          newPage.dataset.pageIndex = pageData.pageIndex;
+          newPage.classList.remove('active-page');
+          this.pagesContainer.appendChild(newPage);
+        }
+        
+        // Set the active page
+        this.currentPageIndex = state.currentPageIndex || 0;
+        this.setActivePage(this.currentPageIndex);
+        
+        // Set data applied flag
+        this.isDataApplied = state.isDataApplied || false;
+        
+        // Update UI elements based on loaded state
+        this.updateNavigationButtons();
+        this.updatePageIndicator();
+        this.updateAddPageButtonVisibility();
+        
+        // Display save timestamp if available
+        if (state.savedAt) {
+          const saveDate = new Date(state.savedAt);
+          const formattedDate = saveDate.toLocaleDateString(undefined, { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          console.log('State restored from save point: ' + formattedDate);
+          
+          // Show a temporary toast notification about the loaded state
+          this.showSaveLoadNotification(`Loaded document from ${formattedDate}`);
+        } else {
+          console.log('State restored successfully');
+          this.showSaveLoadNotification('Document loaded successfully');
+        }
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error applying loaded state:', error);
+      this.showSaveLoadNotification('Error loading document');
+      return false;
     }
   }
   
@@ -550,6 +747,55 @@ class PageManager {
       clearTimeout(timeout);
       timeout = setTimeout(later, wait);
     };
+  }
+  
+  /**
+   * Show a temporary notification toast about save/load operations
+   * @param {string} message - The message to display
+   */
+  showSaveLoadNotification(message) {
+    // Check if notification element already exists
+    let notification = document.querySelector('.save-load-notification');
+    
+    // Create notification if it doesn't exist
+    if (!notification) {
+      notification = document.createElement('div');
+      notification.className = 'save-load-notification';
+      
+      // Add icon
+      const icon = document.createElement('div');
+      icon.className = 'save-load-notification-icon';
+      icon.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+      `;
+      
+      // Add message element
+      const messageEl = document.createElement('span');
+      messageEl.className = 'save-load-notification-message';
+      
+      // Assemble notification
+      notification.appendChild(icon);
+      notification.appendChild(messageEl);
+      
+      // Add to DOM
+      document.body.appendChild(notification);
+    }
+    
+    // Update message
+    const messageEl = notification.querySelector('.save-load-notification-message');
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+    
+    // Show notification
+    notification.classList.add('visible');
+    
+    // Hide after a delay
+    setTimeout(() => {
+      notification.classList.remove('visible');
+    }, 3000);
   }
   
   /**
@@ -691,6 +937,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set staticTemplateCleared to false to ensure we see the original template
     window.staticTemplateCleared = false;
+    
+    // Set this flag to skip auto-application of data
+    window.preventAutoDataApplyAfterReset = true;
     
     // Show a success message
     const successMessage = document.createElement('div');
@@ -885,8 +1134,24 @@ document.addEventListener('DOMContentLoaded', function() {
       // Create and store a special flag to ensure the original template is shown
       localStorage.setItem('showStaticTemplate', 'true');
       
-      // Force a complete reset by clearing all state
+      // Force a complete reset by clearing all state from localStorage
       localStorage.removeItem('legacySheetState');
+      
+      // Also clear the server-side state by posting an empty state
+      fetch('/api/save-state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reset: true, resetAt: new Date().toISOString() })
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Server state reset:', data);
+      })
+      .catch(error => {
+        console.error('Failed to reset server state:', error);
+      });
       
       // Reset the staticTemplateCleared flag
       staticTemplateCleared = false;
@@ -1570,7 +1835,21 @@ document.addEventListener('DOMContentLoaded', function() {
           if (nameAndBioMatch) {
             const extractedName = nameAndBioMatch[1].trim();
             const afterNameText = nameAndBioMatch[2] ? nameAndBioMatch[2].trim() : '';
-            currentParagraphPreview = `<b>${preserveHyperlinks(extractedName)}</b>${afterNameText ? ' ' + preserveHyperlinks(afterNameText) : ''}`;
+            
+            // Check if the afterNameText starts with a comma or if we need to add one
+            if (afterNameText) {
+              if (afterNameText.startsWith(',')) {
+                // If afterNameText already has a comma, keep it as is
+                currentParagraphPreview = `<b>${preserveHyperlinks(extractedName)}</b>${preserveHyperlinks(afterNameText)}`;
+              } else {
+                // If no comma, add one with a space after it
+                currentParagraphPreview = `<b>${preserveHyperlinks(extractedName)}</b>, ${preserveHyperlinks(afterNameText)}`;
+              }
+            } else {
+              // If no text after name, just output the name
+              currentParagraphPreview = `<b>${preserveHyperlinks(extractedName)}</b>`;
+            }
+            
             if (!person.name) nameForHeader = preserveHyperlinks(extractedName); // Update header name if not already set
           } else {
             if (person.name && firstMeaningfulLineText.startsWith(person.name)) {
@@ -1702,7 +1981,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // If we detect we're showing the static template after a reset, don't auto-apply
-    if (localStorage.getItem('showStaticTemplate') === 'true') {
+    if (localStorage.getItem('showStaticTemplate') === 'true' || window.preventAutoDataApplyAfterReset) {
       console.log('Static template mode detected, not auto-applying data');
       return;
     }
@@ -1856,7 +2135,20 @@ document.addEventListener('DOMContentLoaded', function() {
           if (nameAndBioMatch) {
             const name = nameAndBioMatch[1].trim();
             const afterName = nameAndBioMatch[2] ? nameAndBioMatch[2].trim() : '';
-            mainParagraphHTML = `<b>${preserveHyperlinks(name)}</b>${afterName ? ' ' + preserveHyperlinks(afterName) : ''}`;
+            
+            // Check if the afterName starts with a comma or if we need to add one
+            if (afterName) {
+              if (afterName.startsWith(',')) {
+                // If afterName already has a comma, keep it as is
+                mainParagraphHTML = `<b>${preserveHyperlinks(name)}</b>${preserveHyperlinks(afterName)}`;
+              } else {
+                // If no comma, add one with a space after it
+                mainParagraphHTML = `<b>${preserveHyperlinks(name)}</b>, ${preserveHyperlinks(afterName)}`;
+              }
+            } else {
+              // If no text after name, just output the name
+              mainParagraphHTML = `<b>${preserveHyperlinks(name)}</b>`;
+            }
           } else {
             // Fallback if regex doesn't match (e.g. no clear name pattern on the first line)
             mainParagraphHTML = preserveHyperlinks(firstContentLineText);
