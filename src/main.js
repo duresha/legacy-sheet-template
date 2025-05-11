@@ -1727,8 +1727,11 @@ document.addEventListener('DOMContentLoaded', function() {
           mainParagraphDiv.addEventListener('click', checkSelectionFormatting);
           mainParagraphDiv.addEventListener('focus', checkSelectionFormatting);
           
-          // Add hover controls for editing/deleting
-          addParagraphControls(mainParagraphDiv, person, personContent);
+                      // Add hover controls for editing/deleting
+            addParagraphControls(mainParagraphDiv, person, personContent);
+           
+            // Make main paragraph resizable
+            makeResizable(mainParagraphDiv);
           
           personContent.appendChild(mainParagraphDiv);
           
@@ -1801,6 +1804,9 @@ document.addEventListener('DOMContentLoaded', function() {
                   // Replace placeholder with container
                   personImagePlaceholder.parentNode.replaceChild(imageContainer, personImagePlaceholder);
                   
+                  // Make the image container vertically draggable
+                  makeImageDraggable(imageContainer, personContent);
+                  
                   // Add click event to the image to allow replacing it
                   personImage.addEventListener('click', function() {
                     const newFileInput = document.createElement('input');
@@ -1816,6 +1822,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         const newObjectURL = URL.createObjectURL(newFileInput.files[0]);
                         personImage.src = newObjectURL;
                         
+                        // Reflow the main paragraph text to accommodate the image
+                        const mainParagraph = personContent.querySelector('.main-person-paragraph');
+                        if (mainParagraph && typeof reflowImageIfNeeded === 'function') {
+                          reflowImageIfNeeded(mainParagraph);
+                        }
+                        
                         // Save state after changing the image
                         if (window.pageManager) {
                           window.pageManager.saveCurrentPageState();
@@ -1826,6 +1838,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     newFileInput.click();
                   });
+                  
+                  // Reflow the main paragraph text to accommodate the image
+                  const mainParagraph = personContent.querySelector('.main-person-paragraph');
+                  if (mainParagraph && typeof reflowImageIfNeeded === 'function') {
+                    reflowImageIfNeeded(mainParagraph);
+                  }
                   
                   // Save state after adding the image
                   if (window.pageManager) {
@@ -2228,6 +2246,57 @@ document.addEventListener('DOMContentLoaded', function() {
       margin-bottom: 10px;
       margin-top: -32px;
       border-radius: 10%;
+      cursor: move;
+      z-index: 10;
+    }
+    
+    .person-image-container.dragging {
+      opacity: 0.8;
+      pointer-events: none;
+      z-index: 1000;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Drag handle for vertical movement */
+    .image-drag-handle {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 12px;
+      background-color: rgba(0, 120, 215, 0.7);
+      border-radius: 6px;
+      cursor: ns-resize;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 100;
+    }
+    
+    .image-drag-handle::after {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 7px;
+      width: 16px;
+      height: 4px;
+      background-color: white;
+      border-radius: 2px;
+    }
+    
+    .image-drag-handle.top {
+      top: -6px;
+    }
+    
+    .image-drag-handle.bottom {
+      bottom: -6px;
+    }
+    
+    .person-image-container:hover .image-drag-handle {
+      opacity: 0.8;
+    }
+    
+    .image-drag-handle:hover {
+      opacity: 1 !important;
     }
     
     /* Delete button for person image */
@@ -2306,6 +2375,7 @@ document.addEventListener('DOMContentLoaded', function() {
       border-radius: 12px; /* Adjusted for the shape */
     }
     
+    /* Paragraph controls - Apple UI Style */
     .paragraph-controls {
       position: absolute;
       right: 10px;
@@ -2376,6 +2446,49 @@ document.addEventListener('DOMContentLoaded', function() {
       accent-color: #a85733;
       width: 16px;
       height: 16px;
+    }
+    
+    /* Drag handle for vertical movement */
+    .image-drag-handle {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 12px;
+      background-color: rgba(0, 120, 215, 0.7);
+      border-radius: 6px;
+      cursor: ns-resize;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 100;
+    }
+    
+    .image-drag-handle::after {
+      content: '';
+      position: absolute;
+      top: 4px;
+      left: 7px;
+      width: 16px;
+      height: 4px;
+      background-color: white;
+      border-radius: 2px;
+    }
+    
+    .image-drag-handle.top {
+      top: -6px;
+    }
+    
+    .image-drag-handle.bottom {
+      bottom: -6px;
+    }
+    
+    .person-image-container:hover .image-drag-handle {
+      opacity: 0.8;
+    }
+    
+    /* Styles for draggable image container already defined above */
+    .image-drag-handle:hover {
+      opacity: 1 !important;
     }
   `;
   document.head.appendChild(fadeTransitionStyle);
@@ -2701,6 +2814,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add hover controls for editing/deleting
     addParagraphControls(paraDiv, person, personContent);
     
+    // Make the paragraph resizable with the handles
+    makeResizable(paraDiv);
+    
     return paraDiv;
   }
 
@@ -2738,6 +2854,379 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Insert the checkbox container after the upload preview
-  uploadPreview.insertAdjacentElement('afterend', hasImageCheckboxContainer);
+  // Add CSS for paragraph resizing functionality
+  const resizeHandlesStyles = document.createElement('style');
+  resizeHandlesStyles.textContent = `
+    .resizable-paragraph {
+      position: relative;
+    }
+    
+    .resize-handle {
+      position: absolute;
+      width: 8px;
+      height: 40px;
+      background-color: rgba(0, 120, 215, 0.7);
+      border-radius: 4px;
+      cursor: col-resize;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 100;
+    }
+    
+    .resize-handle.left {
+      left: -4px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    
+    .resize-handle.right {
+      right: -4px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    
+    .resizable-paragraph:hover .resize-handle,
+    .resizable-paragraph.resizing .resize-handle {
+      opacity: 1;
+    }
+    
+    .resizable-paragraph.resizing {
+      cursor: col-resize;
+      user-select: none;
+    }
+    
+    .resize-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border: 2px dashed rgba(0, 120, 215, 0.7);
+      pointer-events: none;
+      display: none;
+      z-index: 99;
+    }
+    
+    .resizable-paragraph.resizing .resize-overlay {
+      display: block;
+    }
+  `;
+  document.head.appendChild(resizeHandlesStyles);
+
+  // Debounce utility function
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  // Make paragraph resizable with handles on sides
+  function makeResizable(element) {
+    // Make sure we don't add duplicate handlers
+    if (element.classList.contains('resizable-paragraph')) {
+      return;
+    }
+    
+    // Add the resizable class
+    element.classList.add('resizable-paragraph');
+    
+    // Create resize handles and overlay
+    const leftHandle = document.createElement('div');
+    leftHandle.className = 'resize-handle left';
+    
+    const rightHandle = document.createElement('div');
+    rightHandle.className = 'resize-handle right';
+    
+    const resizeOverlay = document.createElement('div');
+    resizeOverlay.className = 'resize-overlay';
+    
+    // Add handles and overlay to the element
+    element.appendChild(leftHandle);
+    element.appendChild(rightHandle);
+    element.appendChild(resizeOverlay);
+    
+    // Variables to track resize state
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    let handle = null;
+    
+    // Handle mousedown on resize handles
+    function startResize(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      isResizing = true;
+      handle = e.target;
+      startX = e.clientX;
+      startWidth = element.offsetWidth;
+      
+      // Add resizing class to element
+      element.classList.add('resizing');
+      
+      // Add event listeners for resize
+      document.addEventListener('mousemove', resize);
+      document.addEventListener('mouseup', stopResize);
+      
+      // Prevent text selection during resize
+      document.body.style.userSelect = 'none';
+    }
+    
+    // Handle mousemove during resize
+    function resize(e) {
+      if (!isResizing) return;
+      
+      let newWidth;
+      
+      if (handle.classList.contains('right')) {
+        // Resize from right handle
+        newWidth = startWidth + (e.clientX - startX);
+      } else {
+        // Resize from left handle
+        const deltaX = e.clientX - startX;
+        newWidth = startWidth - deltaX;
+        
+        // If resizing from left, adjust the min width
+        if (newWidth < 200) {
+          newWidth = 200;
+        }
+      }
+      
+      // Apply max width constraint if needed
+      const maxWidth = element.parentElement.offsetWidth - 40; // 40px margin
+      if (newWidth > maxWidth) {
+        newWidth = maxWidth;
+      }
+      
+      // Update element width
+      element.style.width = `${newWidth}px`;
+      
+      // If this is a main paragraph with an image, reflow the image
+      reflowImageIfNeeded(element);
+    }
+    
+    // Handle mouseup after resize
+    function stopResize() {
+      isResizing = false;
+      
+      // Remove resizing class
+      element.classList.remove('resizing');
+      
+      // Remove event listeners
+      document.removeEventListener('mousemove', resize);
+      document.removeEventListener('mouseup', stopResize);
+      
+      // Re-enable text selection
+      document.body.style.userSelect = '';
+      
+      // Save state after resize
+      saveStateAfterEdit();
+    }
+    
+    // Call the global reflowImageIfNeeded function
+    reflowImageIfNeeded(element);
+    
+    // Add event listeners to handles
+    leftHandle.addEventListener('mousedown', startResize);
+    rightHandle.addEventListener('mousedown', startResize);
+    
+    // Initial reflow if needed
+    reflowImageIfNeeded(element);
+  }
+
+  // Helper function to handle image reflow
+  function reflowImageIfNeeded(element) {
+    // Check if this is a main paragraph with an image
+    if (element.classList.contains('main-person-paragraph')) {
+      const personContent = element.parentElement;
+      if (!personContent) return;
+      
+      const personImageContainer = personContent.querySelector('.person-image-container');
+      if (personImageContainer) {
+        // If image exists and paragraph width is less than 80% of content width,
+        // position the image appropriately
+        const contentWidth = personContent.offsetWidth;
+        const paragraphWidth = element.offsetWidth;
+        
+        if (paragraphWidth < contentWidth * 0.8) {
+          // There's space for the image to float right
+          personImageContainer.style.float = 'right';
+          personImageContainer.style.clear = 'right';
+          personImageContainer.style.marginLeft = '15px';
+        } else {
+          // Full width paragraph, center the image
+          personImageContainer.style.float = 'none';
+          personImageContainer.style.clear = 'both';
+          personImageContainer.style.margin = '10px auto';
+          personImageContainer.style.display = 'block';
+        }
+      }
+    }
+    
+    // For indented paragraphs, just apply the width
+    if (element.classList.contains('indented-paragraph')) {
+      // The width is already being set directly
+    }
+  }
+
+  // Make an image container vertically draggable
+  function makeImageDraggable(imageContainer, personContent) {
+    // Make sure we don't add duplicate handlers
+    if (imageContainer.classList.contains('vertically-draggable')) {
+      return;
+    }
+    
+    // Mark as draggable
+    imageContainer.classList.add('vertically-draggable');
+    
+    // Create drag handles
+    const topHandle = document.createElement('div');
+    topHandle.className = 'image-drag-handle top';
+    
+    const bottomHandle = document.createElement('div');
+    bottomHandle.className = 'image-drag-handle bottom';
+    
+    // Add handles to container
+    imageContainer.appendChild(topHandle);
+    imageContainer.appendChild(bottomHandle);
+    
+    // Variables to track dragging state
+    let isDragging = false;
+    let startY = 0;
+    let startTop = 0;
+    let currentHandle = null;
+    
+    // Handler for starting the drag
+    function startDrag(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Set dragging state
+      isDragging = true;
+      currentHandle = e.target;
+      startY = e.clientY;
+      
+      // Get the current computed top value
+      const computedStyle = window.getComputedStyle(imageContainer);
+      startTop = parseInt(computedStyle.marginTop) || 0;
+      
+      // Add dragging class
+      imageContainer.classList.add('dragging');
+      
+      // Add event listeners for drag movement
+      document.addEventListener('mousemove', drag);
+      document.addEventListener('mouseup', stopDrag);
+      
+      // Prevent text selection during drag
+      document.body.style.userSelect = 'none';
+    }
+    
+    // Handler for dragging
+    function drag(e) {
+      if (!isDragging) return;
+      
+      // Calculate new top position based on the drag delta
+      const deltaY = e.clientY - startY;
+      let newMarginTop = startTop + deltaY;
+      
+      // Set a minimum margin-top value to keep the image visible
+      const minMarginTop = -imageContainer.offsetHeight + 30;
+      if (newMarginTop < minMarginTop) {
+        newMarginTop = minMarginTop;
+      }
+      
+      // Set a maximum margin-top to prevent image from going too far down
+      const maxMarginTop = personContent.offsetHeight - 100;
+      if (newMarginTop > maxMarginTop) {
+        newMarginTop = maxMarginTop;
+      }
+      
+      // Apply the new position
+      imageContainer.style.marginTop = `${newMarginTop}px`;
+      
+      // Reflow text around the image as it moves
+      reflowTextAroundMovedImage(imageContainer, personContent);
+    }
+    
+    // Handler for stopping the drag
+    function stopDrag() {
+      if (!isDragging) return;
+      
+      // Reset dragging state
+      isDragging = false;
+      currentHandle = null;
+      
+      // Remove dragging class
+      imageContainer.classList.remove('dragging');
+      
+      // Remove event listeners
+      document.removeEventListener('mousemove', drag);
+      document.removeEventListener('mouseup', stopDrag);
+      
+      // Re-enable text selection
+      document.body.style.userSelect = '';
+      
+      // Final reflow of text
+      reflowTextAroundMovedImage(imageContainer, personContent);
+      
+      // Save state after drag is complete
+      saveStateAfterEdit();
+    }
+    
+    // Also make the container itself draggable (not just the handles)
+    imageContainer.addEventListener('mousedown', function(e) {
+      // Only handle dragging from the container itself, not from children (like the image or delete button)
+      if (e.target === imageContainer) {
+        startDrag(e);
+      }
+    });
+    
+    // Add event listeners to handles
+    topHandle.addEventListener('mousedown', startDrag);
+    bottomHandle.addEventListener('mousedown', startDrag);
+  }
+  
+  // Helper function to reflow text around a moved image
+  function reflowTextAroundMovedImage(imageContainer, personContent) {
+    // Find all paragraphs that might need reflowing
+    const paragraphs = personContent.querySelectorAll('.main-person-paragraph, .indented-paragraph');
+    
+    // Get image position info
+    const imageRect = imageContainer.getBoundingClientRect();
+    const containerRect = personContent.getBoundingClientRect();
+    
+    // Calculate relative positions
+    const imageTop = imageRect.top - containerRect.top;
+    const imageBottom = imageRect.bottom - containerRect.top;
+    
+    // Check each paragraph to see if it needs adjustment based on image position
+    paragraphs.forEach(paragraph => {
+      const paraRect = paragraph.getBoundingClientRect();
+      const paraTop = paraRect.top - containerRect.top;
+      const paraBottom = paraRect.bottom - containerRect.top;
+      
+      // Determine if this paragraph overlaps with the image vertically
+      const overlapsImage = (paraBottom > imageTop && paraTop < imageBottom);
+      
+      if (overlapsImage) {
+        // If paragraph overlaps image vertically, we need to adjust its width
+        // if it's also not already resized by the user
+        if (!paragraph.style.width) {
+          const mainParagraphWidth = personContent.offsetWidth - imageRect.width - 30; // 30px for spacing
+          paragraph.style.width = `${mainParagraphWidth}px`;
+        }
+      } else {
+        // If no overlap, the paragraph can use the full width
+        if (!paragraph.style.width || paragraph.style.width === 'auto') {
+          paragraph.style.width = 'auto';
+        }
+      }
+    });
+  }
 });
