@@ -2660,6 +2660,13 @@ document.addEventListener('DOMContentLoaded', function() {
       color: #a85733 !important;
     }
     
+    /* Hyperlink styled text */
+    .hyperlink-style {
+      color: #a85733;
+      font-weight: bold;
+      text-decoration: underline;
+    }
+    
     /* Styling for active formatting buttons */
     .paragraph-controls button.active-format {
       background-color: rgba(0, 0, 0, 0.1);
@@ -2668,6 +2675,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     /* Style the color button with theme color */
     .paragraph-controls .color-btn svg {
+      stroke: #a85733;
+    }
+    
+    /* Style the hyperlink button with theme color */
+    .paragraph-controls .hyperlink-btn svg {
       stroke: #a85733;
     }
     
@@ -3215,10 +3227,136 @@ document.addEventListener('DOMContentLoaded', function() {
       }, 300);
     });
     
+    // Create underline button
+    const underlineBtn = document.createElement('button');
+    underlineBtn.className = 'underline-btn';
+    underlineBtn.title = 'Underline text (Ctrl+U)';
+    underlineBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 3v7a6 6 0 0 0 12 0V3"/>
+      <line x1="4" y1="21" x2="20" y2="21"/>
+    </svg>`;
+    underlineBtn.addEventListener('click', function(e) {
+      e.stopPropagation(); // Prevent event bubbling
+      e.preventDefault(); // Prevent default
+      
+      // Make sure the paragraph has focus
+      paraDiv.focus();
+      
+      // Check if there's a selection
+      const selection = window.getSelection();
+      
+      // If no selection or collapsed (just a cursor), select all paragraph text
+      if (!selection.rangeCount || selection.isCollapsed) {
+        console.log("No selection, selecting all text");
+        const range = document.createRange();
+        range.selectNodeContents(paraDiv);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // There is a selection, check if it's within our paragraph
+        const range = selection.getRangeAt(0);
+        const selectionParent = range.commonAncestorContainer;
+        
+        if (!paraDiv.contains(selectionParent)) {
+          console.log("Selection outside paragraph, selecting all text");
+          // Selection is outside our paragraph, select all paragraph content instead
+          const newRange = document.createRange();
+          newRange.selectNodeContents(paraDiv);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          console.log("Selection within paragraph, using it");
+          // Selection is already within our paragraph, use it
+        }
+      }
+      
+      // Apply underline to the selection
+      document.execCommand('underline', false, null);
+      
+      // Don't clear selection if user selected specific text
+      // Only clear if we auto-selected the whole paragraph
+      if (!selection.rangeCount || selection.getRangeAt(0).toString().trim() === paraDiv.textContent.trim()) {
+        selection.removeAllRanges();
+      }
+      
+      // Update the raw data with the formatting changes
+      if (person && personContent) {
+        updatePersonRawWithUserBreaks(person, personContent);
+      }
+      
+      // Save state after edit
+      saveStateAfterEdit();
+    });
+    
+    // Create hyperlink style button (combines bold, theme color, and underline)
+    const hyperlinkBtn = document.createElement('button');
+    hyperlinkBtn.className = 'hyperlink-btn';
+    hyperlinkBtn.title = 'Apply hyperlink style (Ctrl+D)';
+    hyperlinkBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a85733" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </svg>`;
+    hyperlinkBtn.addEventListener('click', function(e) {
+      e.stopPropagation(); // Prevent event bubbling
+      e.preventDefault(); // Prevent default
+      
+      // Make sure the paragraph has focus
+      paraDiv.focus();
+      
+      // Check if there's a selection
+      const selection = window.getSelection();
+      
+      // If no selection or collapsed (just a cursor), select all paragraph text
+      if (!selection.rangeCount || selection.isCollapsed) {
+        console.log("No selection, selecting all text");
+        const range = document.createRange();
+        range.selectNodeContents(paraDiv);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // There is a selection, check if it's within our paragraph
+        const range = selection.getRangeAt(0);
+        const selectionParent = range.commonAncestorContainer;
+        
+        if (!paraDiv.contains(selectionParent)) {
+          console.log("Selection outside paragraph, selecting all text");
+          // Selection is outside our paragraph, select all paragraph content instead
+          const newRange = document.createRange();
+          newRange.selectNodeContents(paraDiv);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          console.log("Selection within paragraph, using it");
+          // Selection is already within our paragraph, use it
+        }
+      }
+      
+      // Apply all three formatting styles at once (hyperlink style)
+      document.execCommand('bold', false, null);
+      document.execCommand('foreColor', false, '#a85733');
+      document.execCommand('underline', false, null);
+      
+      // Don't clear selection if user selected specific text
+      // Only clear if we auto-selected the whole paragraph
+      if (!selection.rangeCount || selection.getRangeAt(0).toString().trim() === paraDiv.textContent.trim()) {
+        selection.removeAllRanges();
+      }
+      
+      // Update the raw data with the formatting changes
+      if (person && personContent) {
+        updatePersonRawWithUserBreaks(person, personContent);
+      }
+      
+      // Save state after edit
+      saveStateAfterEdit();
+    });
+    
     // Add buttons to controls
     controls.appendChild(editBtn);
     controls.appendChild(boldBtn);
     controls.appendChild(colorBtn);
+    controls.appendChild(underlineBtn);
+    controls.appendChild(hyperlinkBtn);
     controls.appendChild(deleteBtn);
     
     // Add controls to paragraph
@@ -3330,31 +3468,68 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
     
-    // Function to check if current selection is within bold text
+    // Function to check if current selection has formatting applied
     function checkSelectionFormatting() {
       const controls = paraDiv.querySelector('.paragraph-controls');
       if (!controls) return;
       
       const boldBtn = controls.querySelector('.bold-btn');
+      const colorBtn = controls.querySelector('.color-btn');
+      const underlineBtn = controls.querySelector('.underline-btn');
+      const hyperlinkBtn = controls.querySelector('.hyperlink-btn');
+      
       if (!boldBtn) return;
       
       try {
         // Only check if this paragraph is active
         if (document.activeElement !== paraDiv) {
           boldBtn.classList.remove('active-format');
+          if (colorBtn) colorBtn.classList.remove('active-format');
+          if (underlineBtn) underlineBtn.classList.remove('active-format');
+          if (hyperlinkBtn) hyperlinkBtn.classList.remove('active-format');
           return;
         }
         
-        // Simplest check - does the current selection or cursor position have bold formatting
+        // Check formatting states
         const isBold = document.queryCommandState('bold');
+        const isUnderlined = document.queryCommandState('underline');
         
+        // Update button states
         if (isBold) {
           boldBtn.classList.add('active-format');
         } else {
           boldBtn.classList.remove('active-format');
         }
+        
+        if (underlineBtn) {
+          if (isUnderlined) {
+            underlineBtn.classList.add('active-format');
+          } else {
+            underlineBtn.classList.remove('active-format');
+          }
+        }
+        
+        // Check if current selection has the theme color
+        const hasThemeColor = document.queryCommandValue('foreColor').toLowerCase().includes('a85733');
+        
+        if (colorBtn) {
+          if (hasThemeColor) {
+            colorBtn.classList.add('active-format');
+          } else {
+            colorBtn.classList.remove('active-format');
+          }
+        }
+        
+        // If all three formats are applied, highlight the hyperlink button
+        if (hyperlinkBtn) {
+          if (isBold && isUnderlined && hasThemeColor) {
+            hyperlinkBtn.classList.add('active-format');
+          } else {
+            hyperlinkBtn.classList.remove('active-format');
+          }
+        }
       } catch (e) {
-        console.error('Error checking bold state:', e);
+        console.error('Error checking formatting state:', e);
       }
     }
     
@@ -3376,27 +3551,63 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Add global keyboard shortcuts for formatting
   document.addEventListener('keydown', function(e) {
+    // Get the active element (focused element)
+    const activeElement = document.activeElement;
+    
+    // Only proceed with formatting shortcuts if we're in an editable paragraph
+    const isEditableParagraph = activeElement && (
+      activeElement.classList.contains('main-person-paragraph') || 
+      activeElement.classList.contains('indented-paragraph') ||
+      activeElement.classList.contains('editable-subparagraph')
+    );
+    
     // Check if Ctrl+J is pressed (for theme color)
-    if (e.ctrlKey && e.key === 'j') {
+    if (e.ctrlKey && e.key === 'j' && isEditableParagraph) {
       e.preventDefault(); // Prevent default browser action
       
-      // Get the active element (focused element)
-      const activeElement = document.activeElement;
+      // Get current selection
+      const selection = window.getSelection();
       
-      // Only proceed if the active element is one of our editable paragraphs
-      if (activeElement && (activeElement.classList.contains('main-person-paragraph') || 
-                           activeElement.classList.contains('indented-paragraph') ||
-                           activeElement.classList.contains('editable-subparagraph'))) {
+      // If there's a valid selection range
+      if (selection.rangeCount > 0) {
+        // Apply theme color
+        document.execCommand('foreColor', false, '#a85733');
+        console.log('Applied theme color with Ctrl+J');
+      }
+    }
+    
+    // Check if Ctrl+U is pressed (for underline)
+    if (e.ctrlKey && e.key === 'u' && isEditableParagraph) {
+      e.preventDefault(); // Prevent default browser action
+      
+      // Get current selection
+      const selection = window.getSelection();
+      
+      // If there's a valid selection range
+      if (selection.rangeCount > 0) {
+        // Apply underline
+        document.execCommand('underline', false, null);
+        console.log('Applied underline with Ctrl+U');
+      }
+    }
+    
+    // Check if Ctrl+D is pressed (for combined hyperlink styling: bold + theme color + underline)
+    if (e.ctrlKey && e.key === 'd' && isEditableParagraph) {
+      e.preventDefault(); // Prevent default browser action
+      
+      // Get current selection
+      const selection = window.getSelection();
+      
+      // If there's a valid selection range
+      if (selection.rangeCount > 0) {
+        // Apply all three formatting styles at once
+        document.execCommand('bold', false, null);
+        document.execCommand('foreColor', false, '#a85733');
+        document.execCommand('underline', false, null);
+        console.log('Applied hyperlink styling (bold, theme color, underline) with Ctrl+D');
         
-        // Get current selection
-        const selection = window.getSelection();
-        
-        // If there's a valid selection range
-        if (selection.rangeCount > 0) {
-          // Apply theme color
-          document.execCommand('foreColor', false, '#a85733');
-          console.log('Applied theme color with Ctrl+J');
-        }
+        // Show a subtle notification
+        showNotification('Hyperlink style applied', 'success');
       }
     }
     
