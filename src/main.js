@@ -680,6 +680,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
+  // Initialize insertion controls for adding generation titles
+  addInsertionControls();
+  setupInsertionControlsObserver();
+  
+  // Create Add Generation Title button in the UI
+  createAddGenerationTitleButton();
+  
   // Add event listener for the reset template button
   const resetTemplateBtn = document.getElementById('reset-template-btn');
   if (resetTemplateBtn) {
@@ -741,6 +748,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (mutation.addedNodes.length) {
           mutation.addedNodes.forEach(node => {
             if (node.classList && node.classList.contains('legacy-sheet')) {
+              // Process generation title
               const newTitle = node.querySelector('.generation-title');
               if (newTitle) {
                 // Make it editable
@@ -783,6 +791,17 @@ document.addEventListener('DOMContentLoaded', function() {
                   }
                 });
               }
+              
+              // Process insertion controls for new elements
+              const personEntries = node.querySelectorAll('.person-entry');
+              personEntries.forEach(entry => {
+                addInsertionControl(entry);
+              });
+              
+              const entryDividers = node.querySelectorAll('.entry-divider');
+              entryDividers.forEach(divider => {
+                addInsertionControl(divider);
+              });
             }
           });
         }
@@ -3229,4 +3248,294 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  /**
+   * Creates and inserts a new generation title at the specified position
+   * @param {HTMLElement} container - The legacy sheet container
+   * @param {HTMLElement} insertAfter - The element to insert after (optional)
+   */
+  function insertGenerationTitle(container, insertAfter = null) {
+    // Create the generation title elements
+    const titleContainer = document.createElement('div');
+    titleContainer.className = 'generation-title-container';
+    
+    const generationTitle = document.createElement('div');
+    generationTitle.className = 'generation-title';
+    generationTitle.textContent = 'New Generation';
+    generationTitle.setAttribute('contenteditable', 'true');
+    
+    const horizontalRule = document.createElement('hr');
+    horizontalRule.className = 'horizontal-rule';
+    
+    // Add them to the container
+    titleContainer.appendChild(generationTitle);
+    titleContainer.appendChild(horizontalRule);
+    
+    // Create a fade-in animation effect
+    titleContainer.style.opacity = '0';
+    titleContainer.style.transform = 'translateY(-10px)';
+    titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    
+    // Position the new title elements
+    if (insertAfter) {
+      // Insert after the specified element
+      if (insertAfter.nextElementSibling) {
+        container.insertBefore(titleContainer, insertAfter.nextElementSibling);
+      } else {
+        container.appendChild(titleContainer);
+      }
+    } else {
+      // If no position specified, add at the beginning (after existing title if any)
+      const existingTitle = container.querySelector('.generation-title');
+      if (existingTitle) {
+        const existingRule = existingTitle.nextElementSibling;
+        if (existingRule && existingRule.nextElementSibling) {
+          container.insertBefore(titleContainer, existingRule.nextElementSibling);
+        } else {
+          container.appendChild(titleContainer);
+        }
+      } else {
+        container.prepend(titleContainer);
+      }
+    }
+    
+    // Make the generation title editable
+    // Add styling for better UX when editing
+    generationTitle.style.outline = 'none';
+    generationTitle.style.transition = 'background-color 0.2s ease';
+    
+    // Add hover effect
+    generationTitle.addEventListener('mouseover', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.5)';
+      this.title = 'Click to edit generation title';
+    });
+    
+    generationTitle.addEventListener('mouseout', function() {
+      this.style.backgroundColor = 'transparent';
+    });
+    
+    // Add focus/blur effects
+    generationTitle.addEventListener('focus', function() {
+      this.style.backgroundColor = 'rgba(240, 240, 240, 0.8)';
+    });
+    
+    generationTitle.addEventListener('blur', function() {
+      this.style.backgroundColor = 'transparent';
+      
+      // Save state when generation title is edited
+      if (window.pageManager) {
+        window.pageManager.saveCurrentPageState();
+        window.pageManager.saveState();
+      }
+    });
+    
+    // Prevent Enter key from creating new lines
+    generationTitle.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.blur(); // Remove focus when Enter is pressed
+      }
+    });
+    
+    // Trigger the animation
+    setTimeout(() => {
+      titleContainer.style.opacity = '1';
+      titleContainer.style.transform = 'translateY(0)';
+    }, 10);
+    
+    // Focus on the title for immediate editing
+    setTimeout(() => {
+      generationTitle.focus();
+      
+      // Select all text for easy replacement
+      const range = document.createRange();
+      range.selectNodeContents(generationTitle);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }, 300);
+    
+    // Save state after adding the new title
+    if (window.pageManager) {
+      setTimeout(() => {
+        window.pageManager.saveCurrentPageState();
+        window.pageManager.saveState();
+      }, 500);
+    }
+    
+    return titleContainer;
+  }
+
+  // Add an insertion control to the person entries to allow adding generation titles
+  function addInsertionControls() {
+    // Select all person entries and entry dividers
+    const personEntries = document.querySelectorAll('.person-entry');
+    const entryDividers = document.querySelectorAll('.entry-divider');
+    
+    // Add insertion controls to each person entry
+    personEntries.forEach(entry => {
+      addInsertionControl(entry);
+    });
+    
+    // Add insertion controls to each entry divider
+    entryDividers.forEach(divider => {
+      addInsertionControl(divider);
+    });
+  }
+
+  // Add insertion control to a specific element
+  function addInsertionControl(element) {
+    // Create the insertion control
+    const insertControl = document.createElement('div');
+    insertControl.className = 'insert-control';
+    insertControl.innerHTML = `
+      <button class="insert-title-btn" title="Insert generation title">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>Add Generation Title</span>
+      </button>
+    `;
+    
+    // Add click event to the insert button
+    const insertButton = insertControl.querySelector('.insert-title-btn');
+    insertButton.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      // Get the container and insert the new generation title
+      const legacySheet = element.closest('.legacy-sheet');
+      insertGenerationTitle(legacySheet, element);
+      
+      // Hide the control after use
+      insertControl.style.opacity = '0';
+      setTimeout(() => {
+        insertControl.style.display = 'none';
+      }, 300);
+    });
+    
+    // Add hover behavior to show the control
+    element.addEventListener('mouseover', function() {
+      // Position the control at the center top of the element
+      const rect = element.getBoundingClientRect();
+      insertControl.style.top = `${-30}px`;
+      insertControl.style.left = '50%';
+      insertControl.style.transform = 'translateX(-50%)';
+      
+      // Show the control
+      insertControl.style.display = 'block';
+      setTimeout(() => {
+        insertControl.style.opacity = '1';
+      }, 10);
+    });
+    
+    element.addEventListener('mouseout', function(e) {
+      // Check if we're not moving to the control itself
+      if (!e.relatedTarget || !insertControl.contains(e.relatedTarget)) {
+        insertControl.style.opacity = '0';
+        setTimeout(() => {
+          insertControl.style.display = 'none';
+        }, 300);
+      }
+    });
+    
+    // Style the element to be a position reference
+    if (!element.style.position || element.style.position === 'static') {
+      element.style.position = 'relative';
+    }
+    
+    // Add the control to the element
+    element.appendChild(insertControl);
+  }
+
+  // Setup mutation observer to add insertion controls to new elements
+  function setupInsertionControlsObserver() {
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (mutation.addedNodes.length) {
+          mutation.addedNodes.forEach(node => {
+            // Check if node is an Element and has the right class
+            if (node.nodeType === 1) {
+              if (node.classList.contains('person-entry') || node.classList.contains('entry-divider')) {
+                addInsertionControl(node);
+              }
+            }
+          });
+        }
+      });
+    });
+    
+    // Observe the pages container
+    const pagesContainer = document.getElementById('pages-container');
+    if (pagesContainer) {
+      observer.observe(pagesContainer, { 
+        childList: true,
+        subtree: true
+      });
+    }
+  }
+
+  // Initialize insertion controls when the DOM is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    // ... existing code ...
+    
+    // Initialize insertion controls
+    addInsertionControls();
+    setupInsertionControlsObserver();
+    
+    // ... existing code ...
+  });
+
+  /**
+   * Creates the Add Generation Title button in the UI
+   */
+  function createAddGenerationTitleButton() {
+    // Check if button already exists
+    if (document.getElementById('add-generation-title-btn')) {
+      return;
+    }
+    
+    // Create the button
+    const addGenerationTitleBtn = document.createElement('button');
+    addGenerationTitleBtn.id = 'add-generation-title-btn';
+    addGenerationTitleBtn.className = 'pagination-button add-generation-title-button';
+    addGenerationTitleBtn.title = 'Add generation title';
+    addGenerationTitleBtn.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+        <path d="M6 9h12M6 15h12M9 4.5v15M15 4.5v15"/>
+      </svg>
+    `;
+    
+    // Add click event to the button
+    addGenerationTitleBtn.addEventListener('click', function() {
+      // Find the current active page
+      const activePage = document.querySelector('.legacy-sheet.active-page');
+      if (!activePage) return;
+      
+      // Insert a new generation title at the top of the page
+      insertGenerationTitle(activePage);
+      
+      // Show success feedback
+      addGenerationTitleBtn.classList.add('button-success');
+      setTimeout(() => {
+        addGenerationTitleBtn.classList.remove('button-success');
+      }, 1000);
+    });
+    
+    // Add the button to the pagination controls after the page indicator
+    const paginationControls = document.querySelector('.pagination-controls');
+    const pageIndicator = document.getElementById('page-indicator');
+    
+    if (paginationControls && pageIndicator) {
+      // Create a divider
+      const divider = document.createElement('div');
+      divider.className = 'pagination-divider';
+      
+      // Insert in the DOM
+      paginationControls.insertBefore(divider, pageIndicator.nextSibling);
+      paginationControls.insertBefore(addGenerationTitleBtn, divider.nextSibling);
+    }
+  }
+
+  
 });
