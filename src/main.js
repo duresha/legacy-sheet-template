@@ -1100,6 +1100,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Create Add Generation Title button in the UI
   createAddGenerationTitleButton();
   
+  // Create Add Child Number button in the UI
+  createAddChildNumberButton();
+  
   // Add event listener for the reset template button
   const resetTemplateBtn = document.getElementById('reset-template-btn');
   if (resetTemplateBtn) {
@@ -2926,6 +2929,72 @@ document.addEventListener('DOMContentLoaded', function() {
       height: 16px;
     }
     
+    /* Add Child Number button styling */
+    .add-child-number-button {
+      background-color: #fff;
+      color: #555;
+      transition: all 0.2s ease;
+    }
+    
+    .add-child-number-button:hover {
+      background-color: #f0f0f0;
+      color: #a85733;
+    }
+    
+    .add-child-number-button svg {
+      display: block;
+    }
+    
+    /* Notification toast styling */
+    .notification-toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: white;
+      color: #333;
+      padding: 12px 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      align-items: center;
+      z-index: 10000;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      font-family: 'Public Sans', sans-serif;
+      font-size: 14px;
+      max-width: 400px;
+    }
+    
+    .notification-toast.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .notification-icon {
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .notification-success .notification-icon {
+      color: #28a745;
+    }
+    
+    .notification-warning .notification-icon {
+      color: #ffc107;
+    }
+    
+    .notification-error .notification-icon {
+      color: #dc3545;
+    }
+    
+    .notification-info .notification-icon {
+      color: #17a2b8;
+    }
+    
     /* Drag handle for vertical movement */
     .image-drag-handle {
       position: absolute;
@@ -3329,6 +3398,15 @@ document.addEventListener('DOMContentLoaded', function() {
           console.log('Applied theme color with Ctrl+J');
         }
       }
+    }
+    
+    // Check if Ctrl+Q is pressed (for child number)
+    if (e.ctrlKey && e.key === 'q') {
+      e.preventDefault(); // Prevent default browser action
+      
+      // Insert child number at cursor position
+      insertChildNumberAtCursor();
+      console.log('Child number insertion triggered with Ctrl+Q');
     }
   });
 
@@ -4055,55 +4133,238 @@ function insertGenerationTitle(container, insertAfter = null) {
   });
 
   /**
-   * Creates the Add Generation Title button in the UI
-   */
-  function createAddGenerationTitleButton() {
-    // Check if button already exists
-    if (document.getElementById('add-generation-title-btn')) {
-      return;
-    }
-    
-    // Create the button
-    const addGenerationTitleBtn = document.createElement('button');
-    addGenerationTitleBtn.id = 'add-generation-title-btn';
-    addGenerationTitleBtn.className = 'pagination-button add-generation-title-button';
-    addGenerationTitleBtn.title = 'Add generation title';
-    addGenerationTitleBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
-        <path d="M6 9h12M6 15h12M9 4.5v15M15 4.5v15"/>
-      </svg>
-    `;
-    
-    // Add click event to the button
-    addGenerationTitleBtn.addEventListener('click', function() {
-      // Find the current active page
-      const activePage = document.querySelector('.legacy-sheet.active-page');
-      if (!activePage) return;
-      
-      // Insert a new generation title at the top of the page
-      insertGenerationTitle(activePage);
-      
-      // Show success feedback
-      addGenerationTitleBtn.classList.add('button-success');
-      setTimeout(() => {
-        addGenerationTitleBtn.classList.remove('button-success');
-      }, 1000);
-    });
-    
-    // Add the button to the pagination controls after the page indicator
-    const paginationControls = document.querySelector('.pagination-controls');
-    const pageIndicator = document.getElementById('page-indicator');
-    
-    if (paginationControls && pageIndicator) {
-      // Create a divider
-      const divider = document.createElement('div');
-      divider.className = 'pagination-divider';
-      
-      // Insert in the DOM
-      paginationControls.insertBefore(divider, pageIndicator.nextSibling);
-      paginationControls.insertBefore(addGenerationTitleBtn, divider.nextSibling);
-    }
+ * Creates the Add Generation Title button in the UI
+ */
+function createAddGenerationTitleButton() {
+  // Check if button already exists
+  if (document.getElementById('add-generation-title-btn')) {
+    return;
   }
+  
+  // Create the button
+  const addGenerationTitleBtn = document.createElement('button');
+  addGenerationTitleBtn.id = 'add-generation-title-btn';
+  addGenerationTitleBtn.className = 'pagination-button add-generation-title-button';
+  addGenerationTitleBtn.title = 'Add generation title';
+  addGenerationTitleBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+      <path d="M6 9h12M6 15h12M9 4.5v15M15 4.5v15"/>
+    </svg>
+  `;
+  
+  // Add click event to the button
+  addGenerationTitleBtn.addEventListener('click', function() {
+    // Find the current active page
+    const activePage = document.querySelector('.legacy-sheet.active-page');
+    if (!activePage) return;
+    
+    // Insert a new generation title at the top of the page
+    insertGenerationTitle(activePage);
+    
+    // Show success feedback
+    addGenerationTitleBtn.classList.add('button-success');
+    setTimeout(() => {
+      addGenerationTitleBtn.classList.remove('button-success');
+    }, 1000);
+  });
+  
+  // Add the button to the pagination controls after the page indicator
+  const paginationControls = document.querySelector('.pagination-controls');
+  const pageIndicator = document.getElementById('page-indicator');
+  
+  if (paginationControls && pageIndicator) {
+    // Create a divider
+    const divider = document.createElement('div');
+    divider.className = 'pagination-divider';
+    
+    // Insert in the DOM
+    paginationControls.insertBefore(divider, pageIndicator.nextSibling);
+    paginationControls.insertBefore(addGenerationTitleBtn, divider.nextSibling);
+  }
+}
+
+/**
+ * Creates the Add Child Number button in the UI
+ */
+function createAddChildNumberButton() {
+  // Check if button already exists
+  if (document.getElementById('add-child-number-btn')) {
+    return;
+  }
+  
+  // Create the button
+  const addChildNumberBtn = document.createElement('button');
+  addChildNumberBtn.id = 'add-child-number-btn';
+  addChildNumberBtn.className = 'pagination-button add-child-number-button';
+  addChildNumberBtn.title = 'Add child number (Ctrl+Q)';
+  addChildNumberBtn.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#a85733" stroke-width="1.5" width="1.2em" height="1.2em">
+      <circle cx="12" cy="12" r="8"/>
+      <text x="12" y="16" font-size="10" text-anchor="middle" fill="#a85733" font-family="sans-serif">n</text>
+    </svg>
+  `;
+  
+  // Add click event to the button
+  addChildNumberBtn.addEventListener('click', function() {
+    // Insert child number at cursor position
+    insertChildNumberAtCursor();
+    
+    // Show success feedback
+    addChildNumberBtn.classList.add('button-success');
+    setTimeout(() => {
+      addChildNumberBtn.classList.remove('button-success');
+    }, 1000);
+  });
+  
+  // Add the button to the pagination controls after the Add Generation Title button
+  const paginationControls = document.querySelector('.pagination-controls');
+  const addGenerationTitleBtn = document.getElementById('add-generation-title-btn');
+  
+  if (paginationControls && addGenerationTitleBtn) {
+    // Create a divider
+    const divider = document.createElement('div');
+    divider.className = 'pagination-divider';
+    
+    // Insert in the DOM
+    paginationControls.insertBefore(divider, addGenerationTitleBtn.nextSibling);
+    paginationControls.insertBefore(addChildNumberBtn, divider.nextSibling);
+  } else if (paginationControls) {
+    // Fallback if Add Generation Title button not found
+    paginationControls.appendChild(addChildNumberBtn);
+  }
+}
+
+/**
+ * Function to insert a child number at the current cursor position
+ */
+function insertChildNumberAtCursor() {
+  // Get current selection
+  const selection = window.getSelection();
+  if (!selection.rangeCount) {
+    showNotification('Please position cursor in an editable paragraph first', 'warning');
+    return;
+  }
+  
+  // Get the range and its container
+  const range = selection.getRangeAt(0);
+  const container = range.startContainer.parentNode;
+  
+  // Only proceed if we're in an editable paragraph
+  if (!container.closest('.editable-subparagraph') && 
+      !container.closest('.main-person-paragraph') && 
+      !container.closest('.indented-paragraph')) {
+    // Show notification that we need to be in an editable area
+    showNotification('Please position cursor in an editable paragraph', 'warning');
+    return;
+  }
+  
+  // Prompt for the child number
+  const childNumber = prompt('Enter the child number:', '1');
+  if (!childNumber) return; // User cancelled
+  
+  // Create the child number element
+  const isLargeNumber = childNumber.length > 3;
+  const childNumberElement = document.createElement('span');
+  childNumberElement.className = `child-number${isLargeNumber ? ' large-number' : ''}`;
+  childNumberElement.textContent = childNumber;
+  
+  // Insert at cursor position
+  range.deleteContents();
+  range.insertNode(childNumberElement);
+  
+  // Move cursor after the inserted element
+  range.setStartAfter(childNumberElement);
+  range.setEndAfter(childNumberElement);
+  selection.removeAllRanges();
+  selection.addRange(range);
+  
+  // Save state after insertion
+  if (window.pageManager) {
+    window.pageManager.saveCurrentPageState();
+    window.pageManager.saveState();
+  }
+  
+  // Show success notification
+  showNotification('Child number inserted successfully', 'success');
+}
+
+/**
+ * Shows a notification to the user
+ * @param {string} message - The message to display
+ * @param {string} type - The type of notification ('success', 'warning', 'error')
+ */
+function showNotification(message, type = 'info') {
+  // Check if notification element already exists
+  let notification = document.querySelector('.notification-toast');
+  
+  // Create notification if it doesn't exist
+  if (!notification) {
+    notification = document.createElement('div');
+    notification.className = 'notification-toast';
+    
+    // Add icon based on type
+    const icon = document.createElement('div');
+    icon.className = 'notification-icon';
+    
+    let iconSvg = '';
+    switch (type) {
+      case 'success':
+        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>`;
+        break;
+      case 'warning':
+        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+          <path d="M12 2L1 21h22L12 2z"/>
+          <path d="M12 16v-5"/>
+          <path d="M12 19v.01"/>
+        </svg>`;
+        break;
+      case 'error':
+        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M15 9l-6 6M9 9l6 6"/>
+        </svg>`;
+        break;
+      default:
+        iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 8v4M12 16h.01"/>
+        </svg>`;
+    }
+    
+    icon.innerHTML = iconSvg;
+    
+    // Add message element
+    const messageEl = document.createElement('span');
+    messageEl.className = 'notification-message';
+    
+    // Assemble notification
+    notification.appendChild(icon);
+    notification.appendChild(messageEl);
+    
+    // Add to DOM
+    document.body.appendChild(notification);
+  }
+  
+  // Update message
+  const messageEl = notification.querySelector('.notification-message');
+  if (messageEl) {
+    messageEl.textContent = message;
+  }
+  
+  // Update class based on type
+  notification.className = 'notification-toast';
+  notification.classList.add(`notification-${type}`);
+  
+  // Show notification
+  notification.classList.add('visible');
+  
+  // Hide after a delay
+  setTimeout(() => {
+    notification.classList.remove('visible');
+  }, 3000);
+}
 
   
 });
