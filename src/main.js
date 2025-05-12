@@ -4905,5 +4905,45 @@ function showNotification(message, type = 'info') {
   }, 3000);
 }
 
+/**
+ * Sets up a keyboard shortcut (Ctrl+S) to replace "General" with "Sampling" when text is selected
+ */
+function setupGeneralSamplingReplacement() {
+  document.addEventListener('keydown', function(e) {
+    // Check if Ctrl+S is pressed
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault(); // Prevent browser's save function
+      
+      // Get the current selection
+      const selection = window.getSelection();
+      if (!selection.rangeCount) return;
+      
+      const range = selection.getRangeAt(0);
+      const selectedText = selection.toString().trim();
+      
+      // Check if selected text contains "General"
+      if (selectedText && selectedText.includes("General")) {
+        // Create a new text node with "Sampling" replacing "General"
+        const modifiedText = selectedText.replace(/General/g, "Sampling");
+        
+        // Delete the selected content and insert the new content
+        range.deleteContents();
+        range.insertNode(document.createTextNode(modifiedText));
+        
+        // Show success notification
+        showNotification("Replaced 'General' with 'Sampling'", "success");
+        
+        // Save state after replacement
+        if (window.pageManager) {
+          window.pageManager.saveCurrentPageState();
+          window.pageManager.saveState();
+        }
+      }
+    }
+  });
+}
+
+// Set up General to Sampling replacement shortcut
+setupGeneralSamplingReplacement();
   
 });
