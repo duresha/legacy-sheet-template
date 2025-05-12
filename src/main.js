@@ -118,16 +118,35 @@ class PageManager {
       this.updateActivePageFromScroll();
     }, 100));
     
-    // Save state before unload
-    window.addEventListener('beforeunload', () => {
-      this.saveState();
+    // Add reload warning and save prompt before unload (closing tab/refreshing)
+    window.addEventListener('beforeunload', (e) => {
+      // Create a flag to check if we've explicitly saved first
+      const lastManualSave = localStorage.getItem('lastManualSaveTime') || '0';
+      const timeSinceLastManualSave = Date.now() - parseInt(lastManualSave);
+      
+      // If it's been less than 2 minutes since manual save, don't show warning
+      if (timeSinceLastManualSave < 2 * 60 * 1000) {
+        return;
+      }
+      
+      // Save state automatically
+      this.saveState('auto');
+      
+      // Standard way to show confirmation dialog before closing/reloading
+      e.preventDefault();
+      e.returnValue = 'You have unsaved changes. Are you sure you want to leave? Your work might be lost if you haven\'t used the Save button.';
+      return e.returnValue;
     });
     
-    // Also add a periodic auto-save every 5 minutes
-    setInterval(() => {
-      this.saveState();
-      console.log('Auto-save completed');
-    }, 5 * 60 * 1000);
+    // Disabled automatic periodic saves as they were causing issues
+    // Instead we'll save only on important events and manual saves
+    
+    // Add custom reload handler to ensure state is properly restored
+    window.addEventListener('load', () => {
+      console.log('Page loaded - ensuring proper state restoration');
+      // Set a flag indicating this was a manual reload/navigation
+      localStorage.setItem('wasManualNavigation', 'true');
+    });
   }
   
   /**
@@ -475,7 +494,7 @@ class PageManager {
   }
   
   /**
-   * Save all page states with visual feedback
+   * Save all page states with visual feedback - this is the explicit user-triggered save
    */
   manualSaveState() {
     // Show saving indicator
@@ -487,8 +506,35 @@ class PageManager {
     // Show initial toast notification
     this.showSaveLoadNotification('Saving document...');
     
-    // Save the state (now includes server saving)
-    this.saveState();
+    // Save the state with the manual flag to indicate it was user-initiated
+    this.saveState('manual');
+    
+    // Record the timestamp of this manual save
+    localStorage.setItem('lastManualSaveTime', Date.now().toString());
+    
+    // Create a backup in a different storage location for redundancy
+    try {
+      // Create backup state with permanent flag
+      const backupState = {
+        pages: this.pages,
+        currentPageIndex: this.currentPageIndex,
+        isDataApplied: this.isDataApplied,
+        savedAt: new Date().toISOString(),
+        saveType: 'manual-backup',
+        isPermanent: true
+      };
+      
+      // Store in two additional locations for redundancy (with different keys)
+      localStorage.setItem('legacySheetState_permanent', JSON.stringify(backupState));
+      localStorage.setItem('legacySheetBackup', JSON.stringify(backupState));
+      
+      // Add to Session Storage as another backup
+      sessionStorage.setItem('legacySheetBackup', JSON.stringify(backupState));
+      
+      console.log('Created permanent backup of user save at ' + backupState.savedAt);
+    } catch (e) {
+      console.error('Error creating backup:', e);
+    }
     
     // Add a delay to ensure server save has time to complete
     setTimeout(() => {
@@ -510,7 +556,9 @@ class PageManager {
         hour: '2-digit',
         minute: '2-digit'
       });
-      this.showSaveLoadNotification(`Document saved at ${formattedDate}`);
+      
+      // Show a more descriptive message for manual saves
+      this.showSaveLoadNotification(`Document permanently saved at ${formattedDate}`, 'permanent-save');
       
       console.log('Manual save completed with UI feedback');
     }, 500); // Wait 500ms to ensure server save has time to complete
@@ -518,8 +566,9 @@ class PageManager {
   
   /**
    * Save all page states persistently
+   * @param {string} saveType - The type of save ('manual', 'auto', or undefined)
    */
-  saveState() {
+  saveState(saveType = 'auto') {
     // Save current page first
     this.saveCurrentPageState();
     
@@ -528,13 +577,19 @@ class PageManager {
       pages: this.pages,
       currentPageIndex: this.currentPageIndex,
       isDataApplied: this.isDataApplied,
-      savedAt: new Date().toISOString() // Add timestamp for UI feedback
+      savedAt: new Date().toISOString(), // Add timestamp for UI feedback
+      saveType: saveType // Track what kind of save this was
     };
     
-    // Save to both localStorage (for same-session persistence) and to file (for cross-session persistence)
+    // Save to localStorage and the server
     try {
-      // First save to localStorage as a fallback
+      // Save to localStorage with a saveType marker
       localStorage.setItem('legacySheetState', JSON.stringify(state));
+      
+      // For manual saves, create an additional permanent backup with a different key
+      if (saveType === 'manual') {
+        localStorage.setItem('legacySheetState_permanent', JSON.stringify({...state, isPermanent: true}));
+      }
       
       // Then save to the server
       fetch('/api/save-state', {
@@ -547,18 +602,28 @@ class PageManager {
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          console.log('State saved to server successfully at ' + state.savedAt);
+          console.log(`State saved to server successfully at ${state.savedAt} (${saveType} save)`);
         } else {
           console.error('Server error saving state:', data.error);
           // If server save fails, at least we have the localStorage backup
+          
+          // Show error notification only for manual saves
+          if (saveType === 'manual') {
+            this.showSaveLoadNotification('Server save failed! Your work is saved locally only.', 'warning');
+          }
         }
       })
       .catch(error => {
         console.error('Network error saving state:', error);
         // If server save fails, at least we have the localStorage backup
+        
+        // Show error notification only for manual saves
+        if (saveType === 'manual') {
+          this.showSaveLoadNotification('Network error! Your work is saved locally only.', 'warning');
+        }
       });
       
-      console.log('State saved successfully at ' + state.savedAt);
+      console.log(`State saved successfully at ${state.savedAt} (${saveType} save)`);
     } catch (e) {
       console.error('Error saving state:', e);
       if (e.name === 'QuotaExceededError') {
@@ -575,6 +640,42 @@ class PageManager {
     if (window.preventAutoDataApplyAfterReset) {
       console.log('Skipping state load after template reset');
       return;
+    }
+    
+    // Check for wasManualNavigation flag to know if this was a page reload/navigation
+    const wasManualNavigation = localStorage.getItem('wasManualNavigation') === 'true';
+    if (wasManualNavigation) {
+      console.log('Detected page reload/navigation - prioritizing permanent save');
+      // Clear the flag so it doesn't affect future loads
+      localStorage.removeItem('wasManualNavigation');
+    }
+    
+    // First check if we have a permanent saved state that should be prioritized
+    const permanentSavedState = localStorage.getItem('legacySheetState_permanent');
+    
+    if (wasManualNavigation && permanentSavedState) {
+      try {
+        console.log('Loading from permanent saved state after page reload');
+        const state = JSON.parse(permanentSavedState);
+        
+        // If this permanent state is less than 10 minutes old, use it preferentially
+        const savedTime = new Date(state.savedAt).getTime();
+        const now = new Date().getTime();
+        const isRecent = (now - savedTime) < 10 * 60 * 1000; // 10 minutes
+        
+        if (isRecent) {
+          // Show loading indicator
+          this.showSaveLoadNotification('Restoring your saved document...', 'info');
+          
+          // Apply the permanent state
+          if (this.applyLoadedState(state, true)) {
+            console.log('Successfully restored from permanent saved state');
+            return true;
+          }
+        }
+      } catch (e) {
+        console.error('Error loading permanent saved state:', e);
+      }
     }
     
     // First try to load from the server
@@ -616,7 +717,32 @@ class PageManager {
       // Parse the state data
       const state = await response.json();
       
-      // Apply the state
+      // Before applying server state, check if we have more recent permanent local state
+      try {
+        const permanentSavedState = localStorage.getItem('legacySheetState_permanent');
+        if (permanentSavedState) {
+          const localState = JSON.parse(permanentSavedState);
+          
+          // Compare timestamps
+          const serverTime = new Date(state.savedAt).getTime();
+          const localTime = new Date(localState.savedAt).getTime();
+          
+          // If local permanent save is newer, use it instead
+          if (localTime > serverTime) {
+            console.log('Found newer permanent local save, using that instead of server state');
+            
+            this.showSaveLoadNotification('Restoring from your latest saved document', 'info');
+            
+            // Apply the local state
+            this.applyLoadedState(localState, true);
+            return true;
+          }
+        }
+      } catch (e) {
+        console.error('Error comparing saved states:', e);
+      }
+      
+      // Apply the server state
       this.applyLoadedState(state);
       
       // Log success
@@ -642,6 +768,45 @@ class PageManager {
         return false;
       }
       
+      // First check if we have a permanent saved state
+      const permanentSavedState = localStorage.getItem('legacySheetState_permanent');
+      if (permanentSavedState) {
+        try {
+          console.log('Found permanent saved state, trying this first');
+          const permanentState = JSON.parse(permanentSavedState);
+          
+          // Apply the permanent state
+          const success = this.applyLoadedState(permanentState, true);
+          if (success) {
+            console.log('Successfully loaded permanent saved state');
+            this.showSaveLoadNotification('Restored from your permanently saved document', 'success');
+            return true;
+          }
+        } catch (e) {
+          console.error('Error loading permanent saved state, falling back to regular state:', e);
+        }
+      }
+      
+      // Check for backup saved states
+      const backupState = localStorage.getItem('legacySheetBackup');
+      if (backupState) {
+        try {
+          console.log('Found backup saved state, trying this second');
+          const parsedBackupState = JSON.parse(backupState);
+          
+          // Apply the backup state
+          const success = this.applyLoadedState(parsedBackupState, true);
+          if (success) {
+            console.log('Successfully loaded from backup saved state');
+            this.showSaveLoadNotification('Restored from your backup saved document', 'success');
+            return true;
+          }
+        } catch (e) {
+          console.error('Error loading backup saved state, falling back to regular state:', e);
+        }
+      }
+      
+      // Finally, try regular state
       const savedState = localStorage.getItem('legacySheetState');
       if (savedState) {
         const state = JSON.parse(savedState);
@@ -650,6 +815,14 @@ class PageManager {
         return this.applyLoadedState(state);
       } else {
         console.log('No saved state found in localStorage');
+        
+        // Show a warning if we got here after a manual navigation
+        const wasManualNavigation = localStorage.getItem('wasManualNavigation') === 'true';
+        if (wasManualNavigation) {
+          this.showSaveLoadNotification('No saved document found! Starting with a new template.', 'warning');
+          localStorage.removeItem('wasManualNavigation');
+        }
+        
         return false;
       }
     } catch (e) {
@@ -661,10 +834,14 @@ class PageManager {
   /**
    * Apply a loaded state object to the application
    * @param {Object} state - The state object to apply
+   * @param {boolean} isPermanent - Whether this is a permanent/manual save being restored
    * @returns {boolean} - Whether the state was applied successfully
    */
-  applyLoadedState(state) {
+  applyLoadedState(state, isPermanent = false) {
     try {
+      // Check if this is a permanent state or has the permanent flag
+      const isPermanentState = isPermanent || state.isPermanent || state.saveType === 'manual';
+      
       // Restore pages if we have saved pages
       if (state.pages && state.pages.length > 0) {
         // Clear existing pages except the first one
@@ -702,6 +879,27 @@ class PageManager {
         this.updatePageIndicator();
         this.updateAddPageButtonVisibility();
         
+        // After successful load, if this was a permanent state, save it to our primary store
+        // to ensure it becomes the default state for future loads
+        if (isPermanentState) {
+          // Mark that this state should be permanent
+          const permanentState = {
+            ...state,
+            isPermanent: true,
+            saveType: 'permanent-restore',
+            restoredAt: new Date().toISOString()
+          };
+          
+          // Save this state as both the regular and permanent states
+          localStorage.setItem('legacySheetState', JSON.stringify(permanentState));
+          localStorage.setItem('legacySheetState_permanent', JSON.stringify(permanentState));
+          
+          // Update timestamp of last manual save to prevent reload warnings
+          localStorage.setItem('lastManualSaveTime', Date.now().toString());
+          
+          console.log('Permanent state activated as primary state');
+        }
+        
         // Display save timestamp if available
         if (state.savedAt) {
           const saveDate = new Date(state.savedAt);
@@ -712,10 +910,16 @@ class PageManager {
             hour: '2-digit',
             minute: '2-digit'
           });
-          console.log('State restored from save point: ' + formattedDate);
           
-          // Show a temporary toast notification about the loaded state
-          this.showSaveLoadNotification(`Loaded document from ${formattedDate}`);
+          if (isPermanentState) {
+            console.log('Permanent state restored from save point: ' + formattedDate);
+            // Show a temporary toast notification about the loaded permanent state
+            this.showSaveLoadNotification(`Restored your permanently saved document from ${formattedDate}`, 'success');
+          } else {
+            console.log('State restored from save point: ' + formattedDate);
+            // Show a temporary toast notification about the loaded state
+            this.showSaveLoadNotification(`Loaded document from ${formattedDate}`);
+          }
         } else {
           console.log('State restored successfully');
           this.showSaveLoadNotification('Document loaded successfully');
@@ -726,7 +930,7 @@ class PageManager {
       return false;
     } catch (error) {
       console.error('Error applying loaded state:', error);
-      this.showSaveLoadNotification('Error loading document');
+      this.showSaveLoadNotification('Error loading document', 'error');
       return false;
     }
   }
@@ -752,8 +956,9 @@ class PageManager {
   /**
    * Show a temporary notification toast about save/load operations
    * @param {string} message - The message to display
+   * @param {string} type - The type of notification ('success', 'warning', 'error', 'info', 'permanent-save')
    */
-  showSaveLoadNotification(message) {
+  showSaveLoadNotification(message, type = 'info') {
     // Check if notification element already exists
     let notification = document.querySelector('.save-load-notification');
     
@@ -765,7 +970,9 @@ class PageManager {
       // Add icon
       const icon = document.createElement('div');
       icon.className = 'save-load-notification-icon';
-      icon.innerHTML = `
+      
+      // Default icon is checkmark
+      let iconSvg = `
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
           <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
         </svg>
@@ -789,13 +996,74 @@ class PageManager {
       messageEl.textContent = message;
     }
     
+    // Update icon based on type
+    const iconEl = notification.querySelector('.save-load-notification-icon');
+    if (iconEl) {
+      let iconSvg = '';
+      
+      switch (type) {
+        case 'success':
+          iconSvg = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="1.5" width="1.2em" height="1.2em">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          `;
+          break;
+        case 'warning':
+          iconSvg = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffc107" stroke-width="1.5" width="1.2em" height="1.2em">
+              <path d="M12 2L1 21h22L12 2z"/>
+              <path d="M12 16v-5"/>
+              <path d="M12 19v.01"/>
+            </svg>
+          `;
+          break;
+        case 'error':
+          iconSvg = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="1.5" width="1.2em" height="1.2em">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M15 9l-6 6M9 9l6 6"/>
+            </svg>
+          `;
+          break;
+        case 'permanent-save':
+          iconSvg = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#28a745" stroke-width="1.5" width="1.2em" height="1.2em">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          `;
+          break;
+        default: // info
+          iconSvg = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#17a2b8" stroke-width="1.5" width="1.2em" height="1.2em">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 8v4M12 16h.01"/>
+            </svg>
+          `;
+      }
+      
+      iconEl.innerHTML = iconSvg;
+    }
+    
+    // Update notification class based on type
+    notification.className = 'save-load-notification';
+    notification.classList.add(`notification-${type}`);
+    
+    // For permanent saves, make the notification more prominent
+    if (type === 'permanent-save') {
+      notification.classList.add('permanent-save-notification');
+    }
+    
     // Show notification
     notification.classList.add('visible');
+    
+    // Determine display duration based on type
+    const duration = type === 'permanent-save' ? 5000 : 3000;
     
     // Hide after a delay
     setTimeout(() => {
       notification.classList.remove('visible');
-    }, 3000);
+    }, duration);
   }
   
   /**
@@ -2623,6 +2891,66 @@ document.addEventListener('DOMContentLoaded', function() {
     .entry-divider {
       transition: opacity 0.3s ease;
       cursor: pointer;
+    }
+    
+    /* Enhanced notification styles */
+    .save-load-notification {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: white;
+      color: #333;
+      padding: 10px 20px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+      z-index: 9999;
+      font-family: 'Public Sans', sans-serif;
+    }
+    
+    .save-load-notification.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    /* Notification types */
+    .save-load-notification.notification-success {
+      border-left: 4px solid #28a745;
+    }
+    
+    .save-load-notification.notification-warning {
+      border-left: 4px solid #ffc107;
+    }
+    
+    .save-load-notification.notification-error {
+      border-left: 4px solid #dc3545;
+    }
+    
+    .save-load-notification.notification-info {
+      border-left: 4px solid #17a2b8;
+    }
+    
+    .save-load-notification.notification-permanent-save {
+      border-left: 4px solid #28a745;
+      background-color: #f0fff4;
+      box-shadow: 0 3px 15px rgba(40, 167, 69, 0.3);
+      transform: translateX(-50%) scale(1.05);
+    }
+    
+    /* Animation for permanent save notification */
+    .save-load-notification.permanent-save-notification {
+      animation: pulse-border 2s ease-in-out;
+    }
+    
+    @keyframes pulse-border {
+      0% { border-left-width: 4px; }
+      50% { border-left-width: 10px; }
+      100% { border-left-width: 4px; }
     }
     
     /* Add styles for person-number hover states */
