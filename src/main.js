@@ -879,6 +879,9 @@ class PageManager {
         this.updatePageIndicator();
         this.updateAddPageButtonVisibility();
         
+        // Check for missing images after restoration and add re-upload buttons
+        this.handleMissingImagesAfterRestore();
+        
         // After successful load, if this was a permanent state, save it to our primary store
         // to ensure it becomes the default state for future loads
         if (isPermanentState) {
@@ -958,6 +961,188 @@ class PageManager {
    * @param {string} message - The message to display
    * @param {string} type - The type of notification ('success', 'warning', 'error', 'info', 'permanent-save')
    */
+  /**
+   * Handle missing images after state restoration
+   * Checks for image containers with broken images and adds re-upload functionality
+   */
+  handleMissingImagesAfterRestore() {
+    // Find all pages
+    const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
+    
+    pages.forEach(page => {
+      // Find all image containers
+      const imageContainers = page.querySelectorAll('.person-image-container');
+      
+      imageContainers.forEach(container => {
+        const img = container.querySelector('.person-image');
+        const personContent = container.closest('.person-content');
+        
+        if (img) {
+          // Check if image is broken or empty src
+          const checkImage = () => {
+            if (img.naturalWidth === 0 || img.src === '' || img.src === '#' || (img.src.startsWith('blob:') && !img.complete)) {
+              console.log('Found missing image, replacing with re-upload button');
+              this.replaceWithImageUploadPlaceholder(container, personContent);
+            }
+          };
+          
+          // Check immediately and also after load attempt fails
+          checkImage();
+          img.addEventListener('error', () => {
+            checkImage();
+          });
+        } else {
+          // No image element found in container, replace with upload placeholder
+          this.replaceWithImageUploadPlaceholder(container, personContent);
+        }
+      });
+    });
+  }
+  
+  /**
+   * Replace missing image with upload placeholder
+   * @param {HTMLElement} container - The image container element
+   * @param {HTMLElement} personContent - The person content element
+   */
+  replaceWithImageUploadPlaceholder(container, personContent) {
+    // Preserve position and styling of the original container
+    const containerStyle = window.getComputedStyle(container);
+    const marginTop = containerStyle.marginTop;
+    const marginLeft = containerStyle.marginLeft;
+    const float = containerStyle.float;
+    
+    // Create a new placeholder with the same positioning
+    const personImagePlaceholder = document.createElement('div');
+    personImagePlaceholder.className = 'person-image-placeholder';
+    personImagePlaceholder.style.marginTop = marginTop;
+    personImagePlaceholder.style.marginLeft = marginLeft;
+    personImagePlaceholder.style.float = float;
+    personImagePlaceholder.innerHTML = `
+      <svg width="180" height="220" xmlns="http://www.w3.org/2000/svg">
+        <rect width="180" height="220" fill="#F0F0F0" stroke="#CCC" stroke-width="2" stroke-dasharray="5,5"/>
+        <text x="90" y="100" font-family="Arial" font-size="16" text-anchor="middle" fill="#666">Click to re-upload</text>
+        <text x="90" y="120" font-family="Arial" font-size="16" text-anchor="middle" fill="#666">person image</text>
+        <text x="90" y="140" font-family="Arial" font-size="14" text-anchor="middle" fill="#666">📷</text>
+      </svg>
+    `;
+    
+    // Add click event to open file picker
+    personImagePlaceholder.addEventListener('click', function() {
+      // Create a temporary file input element
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      
+      // Listen for file selection
+      fileInput.addEventListener('change', function() {
+        if (fileInput.files && fileInput.files[0]) {
+          const selectedFile = fileInput.files[0];
+          
+          // Create image element to replace placeholder
+          const personImage = document.createElement('img');
+          personImage.className = 'person-image';
+          personImage.alt = 'Person image';
+          
+          // Create an object URL for the selected file
+          const objectURL = URL.createObjectURL(selectedFile);
+          personImage.src = objectURL;
+          
+          // Create a container for the image and delete button
+          const imageContainer = document.createElement('div');
+          imageContainer.className = 'person-image-container';
+          
+          // Apply the same positioning as the original container
+          imageContainer.style.marginTop = marginTop;
+          imageContainer.style.marginLeft = marginLeft;
+          imageContainer.style.float = float;
+          
+          // Create delete button
+          const deleteButton = document.createElement('button');
+          deleteButton.className = 'person-image-delete-btn';
+          deleteButton.innerHTML = '×';
+          deleteButton.title = 'Remove image';
+          
+          // Add click event to delete button
+          deleteButton.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent triggering image click
+            
+            // Revoke object URL to prevent memory leaks
+            URL.revokeObjectURL(personImage.src);
+            
+            // Remove the container
+            imageContainer.remove();
+            
+            // Save state after removing the image
+            if (window.pageManager) {
+              window.pageManager.saveCurrentPageState();
+              window.pageManager.saveState();
+            }
+          });
+          
+          // Add image and delete button to container
+          imageContainer.appendChild(personImage);
+          imageContainer.appendChild(deleteButton);
+          
+          // Replace placeholder with container
+          personImagePlaceholder.parentNode.replaceChild(imageContainer, personImagePlaceholder);
+          
+          // Make the image container vertically draggable
+          makeImageDraggable(imageContainer, personContent);
+          
+          // Add click event to the image to allow replacing it
+          personImage.addEventListener('click', function() {
+            const newFileInput = document.createElement('input');
+            newFileInput.type = 'file';
+            newFileInput.accept = 'image/*';
+            
+            newFileInput.addEventListener('change', function() {
+              if (newFileInput.files && newFileInput.files[0]) {
+                // Revoke the old object URL to prevent memory leaks
+                URL.revokeObjectURL(personImage.src);
+                
+                // Create a new object URL for the new file
+                const newObjectURL = URL.createObjectURL(newFileInput.files[0]);
+                personImage.src = newObjectURL;
+                
+                // Reflow the main paragraph text to accommodate the image
+                const mainParagraph = personContent.querySelector('.main-person-paragraph');
+                if (mainParagraph && typeof reflowImageIfNeeded === 'function') {
+                  reflowImageIfNeeded(mainParagraph);
+                }
+                
+                // Save state after changing the image
+                if (window.pageManager) {
+                  window.pageManager.saveCurrentPageState();
+                  window.pageManager.saveState();
+                }
+              }
+            });
+            
+            newFileInput.click();
+          });
+          
+          // Reflow the main paragraph text to accommodate the image
+          const mainParagraph = personContent.querySelector('.main-person-paragraph');
+          if (mainParagraph && typeof reflowImageIfNeeded === 'function') {
+            reflowImageIfNeeded(mainParagraph);
+          }
+          
+          // Save state after adding the image
+          if (window.pageManager) {
+            window.pageManager.saveCurrentPageState();
+            window.pageManager.saveState();
+          }
+        }
+      });
+      
+      // Trigger file selection dialog
+      fileInput.click();
+    });
+    
+    // Replace the original container with our placeholder
+    container.parentNode.replaceChild(personImagePlaceholder, container);
+  }
+  
   showSaveLoadNotification(message, type = 'info') {
     // Check if notification element already exists
     let notification = document.querySelector('.save-load-notification');
@@ -4924,7 +5109,7 @@ function setupGeneralSamplingReplacement() {
       // Check if selected text contains "General"
       if (selectedText && selectedText.includes("General")) {
         // Create a new text node with "Sampling" replacing "General"
-        const modifiedText = selectedText.replace(/General/g, "Sampling");
+        const modifiedText = selectedText.replace(/General/g, "Sampling ");
         
         // Delete the selected content and insert the new content
         range.deleteContents();
