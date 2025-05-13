@@ -194,8 +194,22 @@
                 <span> of <span id="page-total">1</span></span>
             </form>
         </div>
+        <div class="start-page-number-container">
+            <label for="start-page-number">Current page #:</label>
+            <input type="number" id="start-page-number" class="start-page-number" min="1" value="">
+            <button id="apply-start-page" class="apply-start-page">Apply</button>
+        </div>
         <button id="next-page-btn" class="pagination-button" disabled>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+        </button>
+        <!-- Add a subtle divider before the delete button -->
+        <div class="pagination-divider"></div>
+        <!-- Insert After Current Button -->
+        <button id="insert-after-btn" class="pagination-button insert-after-button" title="Insert page after current">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="1.2em" height="1.2em">
+                <path d="M12 5v14M5 12h14"/>
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+            </svg>
         </button>
         <!-- Add a subtle divider before the delete button -->
         <div class="pagination-divider"></div>

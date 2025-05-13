@@ -16,6 +16,12 @@ class PageManager {
     this.pages = [];
     this.currentPageIndex = 0;
     this.isDataApplied = false;
+    this.fileHandle = null;
+    this.startPageNumber = 1; // Add custom start page number property
+    
+    // Initialize navigation control flags
+    this.isManuallyNavigating = false;
+    this.tempDisableScrollEvents = false;
     
     // DOM elements
     this.pagesContainer = document.getElementById('pages-container');
@@ -23,6 +29,7 @@ class PageManager {
     this.nextPageBtn = document.getElementById('next-page-btn');
     this.pageIndicator = document.getElementById('page-indicator');
     this.addPageBtn = document.getElementById('add-page-btn');
+    this.insertAfterBtn = document.getElementById('insert-after-btn');
     this.deletePageBtn = document.getElementById('delete-page-btn');
     this.saveStateBtn = document.getElementById('save-state-btn');
     
@@ -31,6 +38,144 @@ class PageManager {
     
     // Load saved state if available
     this.loadState();
+    
+    // Replace Save PDF button with Print button
+    this.replaceSavePDFWithPrint();
+  }
+  
+  /**
+   * Replace the Save PDF button with a Print button and add a Load Document button
+   */
+  replaceSavePDFWithPrint() {
+    // Replace PDF button with Print button
+    const savePdfBtn = document.getElementById('save-pdf-btn');
+    if (savePdfBtn) {
+      savePdfBtn.textContent = 'Print Document';
+      savePdfBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
+          <path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 14H8v-6h8v6zm2-8H6v-1c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1z"/>
+        </svg>
+        Print Document
+      `;
+      
+      // Replace with PDF generation function
+      savePdfBtn.onclick = async () => {
+        // First, save the current page state
+        this.saveCurrentPageState();
+        
+        // Change button text to indicate processing
+        savePdfBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+            <path d="M0 0h24v24H0z" fill="none"/>
+          </svg>
+          Generating PDF...
+        `;
+        savePdfBtn.disabled = true;
+
+        try {
+          // Create a PDF document
+          const pdf = new jsPDF({
+            unit: 'in',
+            format: 'letter',
+            orientation: 'portrait'
+          });
+          
+          // Store original page index
+          const originalPageIndex = this.currentPageIndex;
+          
+          // Get all page elements
+          const allPages = document.querySelectorAll('.legacy-sheet');
+          
+          // Process each page
+          for (let i = 0; i < allPages.length; i++) {
+            // Set current page to ensure proper rendering
+            this.setActivePage(i);
+            
+            // Wait for page to render
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Capture the page as an image
+            const canvas = await html2canvas(allPages[i], {
+              scale: 2, // Higher resolution
+              useCORS: true,
+              logging: false,
+              backgroundColor: '#ffffff'
+            });
+            
+            // Add a new page if not the first page
+            if (i > 0) {
+              pdf.addPage();
+            }
+            
+            // Add the image to the PDF
+            const imgData = canvas.toDataURL('image/jpeg', 1.0);
+            pdf.addImage(imgData, 'JPEG', 0, 0, 8.5, 11); 
+          }
+          
+          // Restore original page
+          this.setActivePage(originalPageIndex);
+          
+          // Save the PDF
+          pdf.save('Genealogy_Document.pdf');
+          
+          // Reset button
+          savePdfBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
+              <path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 14H8v-6h8v6zm2-8H6v-1c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1z"/>
+            </svg>
+            Save as PDF
+          `;
+          savePdfBtn.disabled = false;
+          
+          // Show success notification
+          this.showSaveLoadNotification('PDF successfully generated!', 'success');
+        } catch (error) {
+          console.error('Error generating PDF:', error);
+          
+          // Reset button on error
+          savePdfBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
+              <path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 14H8v-6h8v6zm2-8H6v-1c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1z"/>
+            </svg>
+            Save as PDF
+          `;
+          savePdfBtn.disabled = false;
+          
+          // Show error notification
+          this.showSaveLoadNotification('Error generating PDF. Please try again.', 'error');
+        }
+      };
+    }
+    
+    // Check if we need to add a Load Document button
+    const saveStateBtn = document.getElementById('save-state-btn');
+    if (saveStateBtn) {
+      let loadStateBtn = document.getElementById('load-state-btn');
+      
+      // Create Load Document button if it doesn't exist
+      if (!loadStateBtn) {
+        loadStateBtn = document.createElement('button');
+        loadStateBtn.id = 'load-state-btn';
+        loadStateBtn.className = 'pagination-control load-btn';
+        loadStateBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-2 17c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H6V4h7v5h2v2z"/>
+          </svg>
+          Load Document
+        `;
+        
+        // Add click handler to trigger file loading
+        loadStateBtn.addEventListener('click', () => {
+          this.loadStateFromUserAction();
+        });
+        
+        // Insert the button next to the Save button
+        if (saveStateBtn.parentNode) {
+          saveStateBtn.parentNode.insertBefore(loadStateBtn, saveStateBtn.nextSibling);
+        }
+      }
+    }
   }
   
   /**
@@ -40,6 +185,11 @@ class PageManager {
     // Add page button
     if (this.addPageBtn) {
       this.addPageBtn.addEventListener('click', () => this.addNewPage());
+    }
+    
+    // Insert page after current button
+    if (this.insertAfterBtn) {
+      this.insertAfterBtn.addEventListener('click', () => this.insertPageAfterCurrent());
     }
     
     // Navigation buttons
@@ -90,6 +240,34 @@ class PageManager {
       });
     }
     
+    // Start page number functionality
+    const startPageNumberInput = document.getElementById('start-page-number');
+    const applyStartPageBtn = document.getElementById('apply-start-page');
+    
+    if (startPageNumberInput && applyStartPageBtn) {
+      applyStartPageBtn.addEventListener('click', () => {
+        const startNumber = parseInt(startPageNumberInput.value);
+        if (!isNaN(startNumber) && startNumber >= 1) {
+          this.startPageNumber = startNumber;
+          this.updateAllPageNumbers();
+          this.showSaveLoadNotification(`Current and following pages now start from ${startNumber}`, 'info');
+        } else {
+          // If input is invalid or empty, reset to sequential numbering
+          this.startPageNumber = 1;
+          this.updateAllPageNumbers();
+          this.showSaveLoadNotification('Current and following pages reset to sequential numbering', 'info');
+        }
+      });
+      
+      // Also apply when Enter key is pressed
+      startPageNumberInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyStartPageBtn.click();
+        }
+      });
+    }
+    
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft') {
@@ -102,21 +280,30 @@ class PageManager {
       }
     });
     
+    // Initialize flags for scroll management
+    this.isManuallyNavigating = false;
+    this.tempDisableScrollEvents = false;
+    
     // Handle horizontal scroll in pages container
     this.pagesContainer.addEventListener('wheel', (e) => {
       if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
         e.preventDefault();
         this.pagesContainer.scrollLeft += e.deltaY;
         
-        // Update active page based on scroll position
-        this.updateActivePageFromScroll();
+        // Only update active page if not currently navigating manually
+        if (!this.tempDisableScrollEvents && !this.isManuallyNavigating) {
+          this.updateActivePageFromScroll();
+        }
       }
     });
     
-    // Handle scroll end to update active page
+    // Handle scroll end to update active page, with a much longer debounce
     this.pagesContainer.addEventListener('scroll', this.debounce(() => {
-      this.updateActivePageFromScroll();
-    }, 100));
+      // Only update if not currently navigating manually
+      if (!this.tempDisableScrollEvents && !this.isManuallyNavigating) {
+        this.updateActivePageFromScroll();
+      }
+    }, 300)); // Increased debounce time to prevent frequent updates
     
     // Add reload warning and save prompt before unload (closing tab/refreshing)
     window.addEventListener('beforeunload', (e) => {
@@ -153,6 +340,11 @@ class PageManager {
    * Update active page based on scroll position
    */
   updateActivePageFromScroll() {
+    // Skip automatic scroll detection when user is manually navigating
+    if (this.isManuallyNavigating) {
+      return;
+    }
+    
     const containerLeft = this.pagesContainer.scrollLeft;
     const containerWidth = this.pagesContainer.clientWidth;
     const centerPoint = containerLeft + (containerWidth / 2);
@@ -173,8 +365,18 @@ class PageManager {
       }
     });
     
-    // Set the new active page
-    this.setActivePage(closestPageIndex);
+    // Only update if the page is significantly in view (more than 75% visible)
+    if (closestDistance < containerWidth * 0.25 && this.currentPageIndex !== closestPageIndex) {
+      // Update the page indicator and buttons without scrolling
+      this.currentPageIndex = closestPageIndex;
+      this.updatePageIndicator();
+      this.updateNavigationButtons();
+      
+      // Just update the active class without scrolling
+      const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
+      pages.forEach(page => page.classList.remove('active-page'));
+      pages[closestPageIndex].classList.add('active-page');
+    }
   }
   
   /**
@@ -208,10 +410,12 @@ class PageManager {
     const newIndex = this.pagesContainer.querySelectorAll('.legacy-sheet').length;
     newPage.dataset.pageIndex = newIndex;
     
-    // Update page number in footer
+    // Update page number in footer based on custom start page number
     const pageNumberElement = newPage.querySelector('.page-number');
     if (pageNumberElement) {
-      pageNumberElement.textContent = (newIndex + 1).toString();
+      // For a new page, calculate its number based on its position relative to currentPageIndex
+      const pageNumber = (newIndex - this.currentPageIndex) + this.startPageNumber;
+      pageNumberElement.textContent = pageNumber.toString();
     }
     
     // Add deletion functionality to the generation title
@@ -361,6 +565,9 @@ class PageManager {
       // Save current page state
       this.saveCurrentPageState();
       
+      // Explicitly set manual navigation mode to true
+      this.isManuallyNavigating = true;
+      
       // Navigate to previous page
       this.setActivePage(this.currentPageIndex - 1);
     }
@@ -375,6 +582,9 @@ class PageManager {
       // Save current page state
       this.saveCurrentPageState();
       
+      // Explicitly set manual navigation mode to true
+      this.isManuallyNavigating = true;
+      
       // Navigate to next page
       this.setActivePage(this.currentPageIndex + 1);
     }
@@ -383,11 +593,15 @@ class PageManager {
   /**
    * Set the active page and update UI
    * @param {number} pageIndex - The index of the page to activate
+   * @param {boolean} preventScroll - Whether to prevent scrolling to the page
    */
-  setActivePage(pageIndex) {
+  setActivePage(pageIndex, preventScroll = false) {
     // Get all pages
     const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
     if (pageIndex < 0 || pageIndex >= pages.length) return;
+    
+    // Set manual navigation flag to prevent scroll detection from changing the page
+    this.isManuallyNavigating = true;
     
     // Store the target page
     const targetPage = pages[pageIndex];
@@ -398,12 +612,23 @@ class PageManager {
     // Add active class to target page
     targetPage.classList.add('active-page');
     
-    // Scroll to the page immediately without animation
-    targetPage.scrollIntoView({
-      behavior: 'auto', // Use immediate scrolling for reliable positioning
-      block: 'nearest',
-      inline: 'center'
-    });
+    if (!preventScroll) {
+      // Disable scroll event handling temporarily
+      this.tempDisableScrollEvents = true;
+      
+      // Scroll to the page immediately without animation
+      targetPage.scrollIntoView({
+        behavior: 'auto', // Use immediate scrolling for reliable positioning
+        block: 'nearest',
+        inline: 'center'
+      });
+      
+      // Re-enable scroll events after scrolling is complete
+      setTimeout(() => {
+        this.tempDisableScrollEvents = false;
+        this.isManuallyNavigating = false;
+      }, 500); // Allow enough time for any scroll animations to complete
+    }
     
     // Update current page index
     this.currentPageIndex = pageIndex;
@@ -447,6 +672,28 @@ class PageManager {
       // Fallback to old text-only display if input not found
       this.pageIndicator.textContent = `Page ${this.currentPageIndex + 1} of ${pageCount}`;
     }
+  }
+  
+  /**
+   * Update page numbers based on the start page number for current and subsequent pages only
+   */
+  updateAllPageNumbers() {
+    const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
+    
+    pages.forEach((page, index) => {
+      // Only update current and subsequent pages
+      if (index >= this.currentPageIndex) {
+        const pageNumberElement = page.querySelector('.page-number');
+        if (pageNumberElement) {
+          // Calculate page number based on index and start page number
+          const pageNumber = index - this.currentPageIndex + this.startPageNumber;
+          pageNumberElement.textContent = pageNumber.toString();
+        }
+      }
+    });
+    
+    // Save state to preserve new page numbering
+    this.saveState();
   }
   
   /**
@@ -496,7 +743,8 @@ class PageManager {
   /**
    * Save all page states with visual feedback - this is the explicit user-triggered save
    */
-  manualSaveState() {
+  async manualSaveState() {
+    try {
     // Show saving indicator
     if (this.saveStateBtn) {
       this.saveStateBtn.classList.add('button-saving');
@@ -506,39 +754,93 @@ class PageManager {
     // Show initial toast notification
     this.showSaveLoadNotification('Saving document...');
     
-    // Save the state with the manual flag to indicate it was user-initiated
-    this.saveState('manual');
-    
-    // Record the timestamp of this manual save
-    localStorage.setItem('lastManualSaveTime', Date.now().toString());
-    
-    // Create a backup in a different storage location for redundancy
-    try {
-      // Create backup state with permanent flag
-      const backupState = {
+      // Save current page first
+      this.saveCurrentPageState();
+      
+      // Create state object
+      const state = {
         pages: this.pages,
         currentPageIndex: this.currentPageIndex,
         isDataApplied: this.isDataApplied,
+        startPageNumber: this.startPageNumber,
         savedAt: new Date().toISOString(),
-        saveType: 'manual-backup',
-        isPermanent: true
+        saveType: 'manual'
       };
       
-      // Store in two additional locations for redundancy (with different keys)
-      localStorage.setItem('legacySheetState_permanent', JSON.stringify(backupState));
-      localStorage.setItem('legacySheetBackup', JSON.stringify(backupState));
+      // Convert to JSON
+      const fileContent = JSON.stringify(state);
       
-      // Add to Session Storage as another backup
-      sessionStorage.setItem('legacySheetBackup', JSON.stringify(backupState));
+      // Check if we have the File System Access API
+      if ('showSaveFilePicker' in window) {
+        // Either use existing file handle or get a new one
+        if (!this.fileHandle) {
+          // Configure save dialog options
+          const options = {
+            suggestedName: 'legacy-sheet-document.gene',
+            types: [{
+              description: 'Legacy Sheet Document',
+              accept: {
+                'application/json': ['.gene'],
+              },
+            }],
+          };
+          
+          try {
+            // Show the file picker
+            this.fileHandle = await window.showSaveFilePicker(options);
+          } catch (err) {
+            // User cancelled the save dialog
+            if (err.name !== 'AbortError') {
+              console.error('Error showing file picker:', err);
+              this.showSaveLoadNotification('Error saving file: ' + err.message, 'error');
+            }
+            
+            // Reset UI
+      if (this.saveStateBtn) {
+        this.saveStateBtn.classList.remove('button-saving');
+        this.saveStateBtn.disabled = false;
+            }
+            
+            return;
+          }
+        }
+        
+        // Create a FileSystemWritableFileStream to write to
+        const writable = await this.fileHandle.createWritable();
+        
+        // Write the contents of the file to the stream
+        await writable.write(fileContent);
+        
+        // Close the file and write the contents to disk
+        await writable.close();
+        
+        // Show success notification
+      const formattedDate = new Date().toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
       
-      console.log('Created permanent backup of user save at ' + backupState.savedAt);
-    } catch (e) {
-      console.error('Error creating backup:', e);
-    }
-    
-    // Add a delay to ensure server save has time to complete
-    setTimeout(() => {
-      // Show success feedback after a short delay
+        this.showSaveLoadNotification(`Document saved to file at ${formattedDate}`, 'permanent-save');
+        console.log('State saved successfully to file at ' + new Date().toISOString());
+      } else {
+        // Fallback for browsers without File System Access API
+        const blob = new Blob([fileContent], { type: 'application/json' });
+        saveAs(blob, 'legacy-sheet-document.gene');
+        
+        // Show success notification
+        const formattedDate = new Date().toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        
+        this.showSaveLoadNotification(`Document downloaded at ${formattedDate}`, 'permanent-save');
+      }
+      
+      // Reset UI
       if (this.saveStateBtn) {
         this.saveStateBtn.classList.remove('button-saving');
         this.saveStateBtn.classList.add('button-success');
@@ -548,92 +850,43 @@ class PageManager {
           this.saveStateBtn.classList.remove('button-success');
         }, 1000);
       }
-      
-      // Show success toast notification
-      const formattedDate = new Date().toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      
-      // Show a more descriptive message for manual saves
-      this.showSaveLoadNotification(`Document permanently saved at ${formattedDate}`, 'permanent-save');
-      
-      console.log('Manual save completed with UI feedback');
-    }, 500); // Wait 500ms to ensure server save has time to complete
-  }
-  
-  /**
-   * Save all page states persistently
-   * @param {string} saveType - The type of save ('manual', 'auto', or undefined)
-   */
-  saveState(saveType = 'auto') {
-    // Save current page first
-    this.saveCurrentPageState();
-    
-    // Create state object
-    const state = {
-      pages: this.pages,
-      currentPageIndex: this.currentPageIndex,
-      isDataApplied: this.isDataApplied,
-      savedAt: new Date().toISOString(), // Add timestamp for UI feedback
-      saveType: saveType // Track what kind of save this was
-    };
-    
-    // Save to localStorage and the server
-    try {
-      // Save to localStorage with a saveType marker
-      localStorage.setItem('legacySheetState', JSON.stringify(state));
-      
-      // For manual saves, create an additional permanent backup with a different key
-      if (saveType === 'manual') {
-        localStorage.setItem('legacySheetState_permanent', JSON.stringify({...state, isPermanent: true}));
-      }
-      
-      // Then save to the server
-      fetch('/api/save-state', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(state)
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          console.log(`State saved to server successfully at ${state.savedAt} (${saveType} save)`);
-        } else {
-          console.error('Server error saving state:', data.error);
-          // If server save fails, at least we have the localStorage backup
-          
-          // Show error notification only for manual saves
-          if (saveType === 'manual') {
-            this.showSaveLoadNotification('Server save failed! Your work is saved locally only.', 'warning');
-          }
-        }
-      })
-      .catch(error => {
-        console.error('Network error saving state:', error);
-        // If server save fails, at least we have the localStorage backup
-        
-        // Show error notification only for manual saves
-        if (saveType === 'manual') {
-          this.showSaveLoadNotification('Network error! Your work is saved locally only.', 'warning');
-        }
-      });
-      
-      console.log(`State saved successfully at ${state.savedAt} (${saveType} save)`);
     } catch (e) {
-      console.error('Error saving state:', e);
-      if (e.name === 'QuotaExceededError') {
-        alert('Error: Storage quota exceeded. The document may be too large to save in browser storage.');
+      console.error('Error saving state to file:', e);
+      this.showSaveLoadNotification('Error saving document: ' + e.message, 'error');
+      
+      // Reset UI
+      if (this.saveStateBtn) {
+        this.saveStateBtn.classList.remove('button-saving');
+        this.saveStateBtn.disabled = false;
       }
     }
   }
   
   /**
-   * Load page states from server and fall back to localStorage
+   * Save state method - now just calls manualSaveState when needed
+   * @param {string} saveType - The type of save operation
+   */
+  saveState(saveType = 'auto') {
+    // For auto saves, we do nothing now - only manual saves are supported
+        if (saveType === 'manual') {
+      this.manualSaveState();
+    } else {
+      // Just save the current page state in memory, no persistence
+      this.saveCurrentPageState();
+      console.log('Auto-save skipped - document only saved on manual save now');
+    }
+    
+    // Save the startPageNumber to local storage so it persists
+    try {
+      const startPageNumberSetting = { startPageNumber: this.startPageNumber };
+      localStorage.setItem('legacySheetPageNumbering', JSON.stringify(startPageNumberSetting));
+    } catch (e) {
+      console.error('Error saving page numbering settings:', e);
+    }
+  }
+  
+  /**
+   * Initial state loading - only sets up empty template, doesn't actually load files
    */
   loadState() {
     // Skip loading state if we just restored the template
@@ -642,55 +895,130 @@ class PageManager {
       return;
     }
     
-    // Check for wasManualNavigation flag to know if this was a page reload/navigation
-    const wasManualNavigation = localStorage.getItem('wasManualNavigation') === 'true';
-    if (wasManualNavigation) {
-      console.log('Detected page reload/navigation - prioritizing permanent save');
-      // Clear the flag so it doesn't affect future loads
-      localStorage.removeItem('wasManualNavigation');
-    }
+    // Just initialize with empty template
+    console.log('Starting with empty template - use Load Document button to load saved files');
     
-    // First check if we have a permanent saved state that should be prioritized
-    const permanentSavedState = localStorage.getItem('legacySheetState_permanent');
-    
-    if (wasManualNavigation && permanentSavedState) {
-      try {
-        console.log('Loading from permanent saved state after page reload');
-        const state = JSON.parse(permanentSavedState);
-        
-        // If this permanent state is less than 10 minutes old, use it preferentially
-        const savedTime = new Date(state.savedAt).getTime();
-        const now = new Date().getTime();
-        const isRecent = (now - savedTime) < 10 * 60 * 1000; // 10 minutes
-        
-        if (isRecent) {
-          // Show loading indicator
-          this.showSaveLoadNotification('Restoring your saved document...', 'info');
+    // Load custom page numbering settings if they exist
+    try {
+      const pageNumberingSettings = localStorage.getItem('legacySheetPageNumbering');
+      if (pageNumberingSettings) {
+        const settings = JSON.parse(pageNumberingSettings);
+        if (settings.startPageNumber) {
+          this.startPageNumber = settings.startPageNumber;
           
-          // Apply the permanent state
-          if (this.applyLoadedState(state, true)) {
-            console.log('Successfully restored from permanent saved state');
-            return true;
+          // Update the start page number input field if it exists
+          const startPageNumberInput = document.getElementById('start-page-number');
+          if (startPageNumberInput) {
+            startPageNumberInput.value = this.startPageNumber;
           }
+          
+          // Update all page numbers to use the custom start number
+          this.updateAllPageNumbers();
         }
-      } catch (e) {
-        console.error('Error loading permanent saved state:', e);
       }
+    } catch (e) {
+      console.error('Error loading page numbering settings:', e);
     }
-    
-    // First try to load from the server
-    this.loadStateFromServer().catch(error => {
-      console.error('Failed to load state from server:', error);
-      console.log('Falling back to localStorage...');
-      // Fall back to localStorage
-      this.loadStateFromLocalStorage();
-    });
   }
   
   /**
-   * Load page states from the server API
+   * Load state from a local file selected by the user - triggered by the Load button
    */
-  async loadStateFromServer() {
+  async loadStateFromUserAction() {
+    try {
+      // Show initial loading notification
+      this.showSaveLoadNotification('Please select a document file to open...', 'info');
+      
+      // Check if File System Access API is available
+      if ('showOpenFilePicker' in window) {
+        // Configure open dialog options
+        const options = {
+          types: [{
+            description: 'Legacy Sheet Document',
+            accept: {
+              'application/json': ['.gene'],
+            },
+          }],
+          multiple: false
+        };
+        
+        // Show open file picker (now triggered by user interaction)
+        const [fileHandle] = await window.showOpenFilePicker(options);
+        this.fileHandle = fileHandle;
+        
+        // Get the file
+        const file = await fileHandle.getFile();
+        
+        // Read the file
+        const text = await file.text();
+        
+        // Parse the state
+        const state = JSON.parse(text);
+        
+        // Apply the state
+          if (this.applyLoadedState(state, true)) {
+          console.log('Successfully loaded state from file');
+          this.showSaveLoadNotification('Document loaded successfully', 'success');
+        }
+      } else {
+        // Fallback for browsers without File System Access API
+        // Create a file input element to allow file selection
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.gene,application/json';
+        
+        // Set up event handler for file selection
+        fileInput.addEventListener('change', (event) => {
+          if (event.target.files && event.target.files[0]) {
+            this.loadStateFromFile(event.target.files[0]);
+          }
+        });
+        
+        // Trigger file dialog (this is ok in direct response to user interaction)
+        fileInput.click();
+      }
+    } catch (err) {
+      // User might have cancelled the dialog
+      if (err.name !== 'AbortError') {
+        console.error('Error loading file:', err);
+        this.showSaveLoadNotification('Error loading file: ' + err.message, 'error');
+      }
+      
+      console.log('No file selected or error occurred');
+    }
+  }
+  
+  /**
+   * Load state from a file input element
+   * @param {File} file - The file to load
+   */
+    async loadStateFromFile(file) {
+    try {
+      // Show loading notification
+      this.showSaveLoadNotification('Loading document...', 'info');
+      
+      // Read the file
+      const text = await file.text();
+      
+      // Parse the state
+      const state = JSON.parse(text);
+      
+      // Apply the state
+      if (this.applyLoadedState(state, true)) {
+        this.showSaveLoadNotification('Document loaded successfully', 'success');
+        console.log('Successfully loaded state from file');
+      }
+    } catch (err) {
+      console.error('Error loading file:', err);
+      this.showSaveLoadNotification('Error loading document: ' + err.message, 'error');
+    }
+  }
+  
+  /**
+   * Load page states from the server API - DEPRECATED, now using file system
+   * Kept for reference only, not used anymore
+   */
+  /*async loadStateFromServer() {
     try {
       // Skip if we're showing static template after reset
       if (window.preventAutoDataApplyAfterReset) {
@@ -755,12 +1083,13 @@ class PageManager {
       // Re-throw the error so the caller can fall back to localStorage
       throw error;
     }
-  }
+  }*/
   
   /**
-   * Load page states from localStorage as a fallback
+   * Load page states from localStorage as a fallback - DEPRECATED, now using file system
+   * Kept for reference only, not used anymore
    */
-  loadStateFromLocalStorage() {
+  /*loadStateFromLocalStorage() {
     try {
       // Skip if we're showing static template after reset
       if (window.preventAutoDataApplyAfterReset) {
@@ -829,7 +1158,7 @@ class PageManager {
       console.error('Error loading state from localStorage:', e);
       return false;
     }
-  }
+  }*/
   
   /**
    * Apply a loaded state object to the application
@@ -874,6 +1203,20 @@ class PageManager {
         // Set data applied flag
         this.isDataApplied = state.isDataApplied || false;
         
+        // Restore startPageNumber if it exists in the state
+        if (state.startPageNumber && !isNaN(state.startPageNumber)) {
+          this.startPageNumber = state.startPageNumber;
+          
+          // Update the start page number input field if it exists
+          const startPageNumberInput = document.getElementById('start-page-number');
+          if (startPageNumberInput) {
+            startPageNumberInput.value = this.startPageNumber;
+          }
+          
+          // Apply page numbering based on start number
+          this.updateAllPageNumbers();
+        }
+        
         // Update UI elements based on loaded state
         this.updateNavigationButtons();
         this.updatePageIndicator();
@@ -882,26 +1225,7 @@ class PageManager {
         // Check for missing images after restoration and add re-upload buttons
         this.handleMissingImagesAfterRestore();
         
-        // After successful load, if this was a permanent state, save it to our primary store
-        // to ensure it becomes the default state for future loads
-        if (isPermanentState) {
-          // Mark that this state should be permanent
-          const permanentState = {
-            ...state,
-            isPermanent: true,
-            saveType: 'permanent-restore',
-            restoredAt: new Date().toISOString()
-          };
-          
-          // Save this state as both the regular and permanent states
-          localStorage.setItem('legacySheetState', JSON.stringify(permanentState));
-          localStorage.setItem('legacySheetState_permanent', JSON.stringify(permanentState));
-          
-          // Update timestamp of last manual save to prevent reload warnings
-          localStorage.setItem('lastManualSaveTime', Date.now().toString());
-          
-          console.log('Permanent state activated as primary state');
-        }
+        // No need to store in localStorage anymore as we're using File System Access API
         
         // Display save timestamp if available
         if (state.savedAt) {
@@ -1012,11 +1336,18 @@ class PageManager {
     const float = containerStyle.float;
     
     // Create a new placeholder with the same positioning
-    const personImagePlaceholder = document.createElement('div');
+    const personImagePlaceholder = document.createElement('button'); // Changed from div to button for better accessibility
     personImagePlaceholder.className = 'person-image-placeholder';
     personImagePlaceholder.style.marginTop = marginTop;
     personImagePlaceholder.style.marginLeft = marginLeft;
     personImagePlaceholder.style.float = float;
+    personImagePlaceholder.style.background = 'none';
+    personImagePlaceholder.style.border = 'none';
+    personImagePlaceholder.style.cursor = 'pointer';
+    personImagePlaceholder.style.padding = '0';
+    personImagePlaceholder.style.width = '180px';
+    personImagePlaceholder.style.height = '220px';
+    personImagePlaceholder.style.outline = 'none';
     personImagePlaceholder.innerHTML = `
       <svg width="180" height="220" xmlns="http://www.w3.org/2000/svg">
         <rect width="180" height="220" fill="#F0F0F0" stroke="#CCC" stroke-width="2" stroke-dasharray="5,5"/>
@@ -1026,15 +1357,18 @@ class PageManager {
       </svg>
     `;
     
-    // Add click event to open file picker
-    personImagePlaceholder.addEventListener('click', function() {
+        // Add click event to open file picker
+    personImagePlaceholder.onclick = function(e) {
+      e.preventDefault(); // Prevent any default button behavior
+      e.stopPropagation(); // Stop event bubbling
+      
       // Create a temporary file input element
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
       fileInput.accept = 'image/*';
       
       // Listen for file selection
-      fileInput.addEventListener('change', function() {
+      fileInput.onchange = function() {
         if (fileInput.files && fileInput.files[0]) {
           const selectedFile = fileInput.files[0];
           
@@ -1063,7 +1397,7 @@ class PageManager {
           deleteButton.title = 'Remove image';
           
           // Add click event to delete button
-          deleteButton.addEventListener('click', function(e) {
+          deleteButton.onclick = function(e) {
             e.stopPropagation(); // Prevent triggering image click
             
             // Revoke object URL to prevent memory leaks
@@ -1077,7 +1411,7 @@ class PageManager {
               window.pageManager.saveCurrentPageState();
               window.pageManager.saveState();
             }
-          });
+          };
           
           // Add image and delete button to container
           imageContainer.appendChild(personImage);
@@ -1090,12 +1424,14 @@ class PageManager {
           makeImageDraggable(imageContainer, personContent);
           
           // Add click event to the image to allow replacing it
-          personImage.addEventListener('click', function() {
+          personImage.onclick = function(e) {
+            e.stopPropagation(); // Prevent event bubbling
+            
             const newFileInput = document.createElement('input');
             newFileInput.type = 'file';
             newFileInput.accept = 'image/*';
             
-            newFileInput.addEventListener('change', function() {
+            newFileInput.onchange = function() {
               if (newFileInput.files && newFileInput.files[0]) {
                 // Revoke the old object URL to prevent memory leaks
                 URL.revokeObjectURL(personImage.src);
@@ -1116,10 +1452,13 @@ class PageManager {
                   window.pageManager.saveState();
                 }
               }
-            });
+            };
             
-            newFileInput.click();
-          });
+            // Use a timeout to ensure the file input dialog appears properly
+            setTimeout(() => {
+              newFileInput.click();
+            }, 100);
+          };
           
           // Reflow the main paragraph text to accommodate the image
           const mainParagraph = personContent.querySelector('.main-person-paragraph');
@@ -1133,11 +1472,13 @@ class PageManager {
             window.pageManager.saveState();
           }
         }
-      });
+      };
       
-      // Trigger file selection dialog
-      fileInput.click();
-    });
+      // Trigger file selection dialog with a slight delay to ensure it always appears
+      setTimeout(() => {
+        fileInput.click();
+      }, 100);
+    };
     
     // Replace the original container with our placeholder
     container.parentNode.replaceChild(personImagePlaceholder, container);
@@ -1289,6 +1630,186 @@ class PageManager {
   }
 
   /**
+   * Insert a new page after the current active page
+   */
+  insertPageAfterCurrent() {
+    // First save current page state
+    this.saveCurrentPageState();
+    
+    // Create a new blank page similar to addNewPage method
+    const newPage = document.createElement('div');
+    newPage.className = 'legacy-sheet';
+    
+    // Add basic page structure with only one generation title
+    newPage.innerHTML = `
+      <div class="generation-title-container">
+        <div class="generation-title" contenteditable="true">New Generation</div>
+        <button class="generation-title-delete-btn">×</button>
+        <hr class="horizontal-rule">
+      </div>
+      
+      <!-- Footer -->
+      <div class="footer-line"></div>
+      <div class="footer">
+        <div class="report-name">Sapling Platinum Report</div>
+        <div class="page-number">1</div>
+      </div>
+    `;
+    
+    // Calculate the insertion index (current page index + 1)
+    const insertIndex = this.currentPageIndex + 1;
+    
+    // Get all pages and the reference page (the page after which we insert)
+    const pages = this.pagesContainer.querySelectorAll('.legacy-sheet');
+    const refPage = pages[this.currentPageIndex];
+    
+    // Insert the new page after the current page in the DOM
+    if (insertIndex < pages.length) {
+      this.pagesContainer.insertBefore(newPage, pages[insertIndex]);
+    } else {
+      // If we're inserting after the last page, just append
+      this.pagesContainer.appendChild(newPage);
+    }
+    
+    // Set page index and ensure it's not active
+    newPage.dataset.pageIndex = insertIndex;
+    
+    // Update page number in footer based on custom start page number
+    const pageNumberElement = newPage.querySelector('.page-number');
+    if (pageNumberElement) {
+      // Calculate page number for the new page - it's 1 more than current page's number
+      const currentPageElement = pages[this.currentPageIndex].querySelector('.page-number');
+      const currentPageNumber = parseInt(currentPageElement?.textContent || this.startPageNumber);
+      const pageNumber = currentPageNumber + 1;
+      pageNumberElement.textContent = pageNumber.toString();
+    }
+    
+    // Add deletion functionality to the generation title
+    const deleteButton = newPage.querySelector('.generation-title-delete-btn');
+    const titleContainer = newPage.querySelector('.generation-title-container');
+    const horizontalRule = newPage.querySelector('.horizontal-rule');
+    
+    if (deleteButton && titleContainer) {
+      // Add delete functionality to the delete button
+      deleteButton.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent triggering other click events
+        
+        // Add fade-out effect
+        titleContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease, height 0.3s ease, margin 0.3s ease';
+        titleContainer.style.opacity = '0';
+        titleContainer.style.transform = 'translateY(-10px)';
+        titleContainer.style.height = '0';
+        titleContainer.style.marginTop = '0';
+        titleContainer.style.marginBottom = '0';
+        titleContainer.style.overflow = 'hidden';
+        
+        // Remove the container after the animation completes
+        setTimeout(() => {
+          titleContainer.remove();
+          
+          // Save state after deletion
+          if (window.pageManager) {
+            window.pageManager.saveCurrentPageState();
+            window.pageManager.saveState();
+          }
+        }, 300);
+      });
+    }
+    
+    if (horizontalRule) {
+      // Add click event to the horizontal rule for deletion
+      horizontalRule.addEventListener('click', function(e) {
+        if (deleteButton) deleteButton.click();
+      });
+    }
+    
+    const generationTitle = newPage.querySelector('.generation-title');
+    if (generationTitle) {
+      // Make it editable with proper styling
+      generationTitle.style.outline = 'none';
+      generationTitle.style.transition = 'background-color 0.2s ease';
+      
+      // Add hover effect
+      generationTitle.addEventListener('mouseover', function() {
+        this.style.backgroundColor = 'rgba(240, 240, 240, 0.5)';
+        this.title = 'Click to edit generation title';
+      });
+      
+      generationTitle.addEventListener('mouseout', function() {
+        this.style.backgroundColor = 'transparent';
+      });
+      
+      // Add focus/blur effects
+      generationTitle.addEventListener('focus', function() {
+        this.style.backgroundColor = 'rgba(240, 240, 240, 0.8)';
+      });
+      
+      generationTitle.addEventListener('blur', function() {
+        this.style.backgroundColor = 'transparent';
+        
+        // Save state when generation title is edited
+        if (window.pageManager) {
+          window.pageManager.saveCurrentPageState();
+          window.pageManager.saveState();
+        }
+      });
+      
+      // Prevent Enter key from creating new lines
+      generationTitle.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.blur(); // Remove focus when Enter is pressed
+        }
+      });
+    }
+    
+    // Update page indices for all pages after the inserted page
+    for (let i = insertIndex + 1; i < pages.length + 1; i++) {
+      const page = pages[i - 1]; // -1 because we've shifted all indices
+      if (page) {
+        // Update page index data attribute
+        page.dataset.pageIndex = i;
+        
+        // Update page number in footer - we need to increment all subsequent page numbers
+        const pageNum = page.querySelector('.page-number');
+        if (pageNum) {
+          // Get the current number from the new page that was just inserted
+          const newPageNumber = parseInt(newPage.querySelector('.page-number')?.textContent || this.startPageNumber);
+          
+          // For all subsequent pages, add 1 to their current value
+          const currentNumber = parseInt(pageNum.textContent);
+          // Make sure we have a valid number
+          if (!isNaN(currentNumber)) {
+            pageNum.textContent = (currentNumber + 1).toString();
+          }
+        }
+      }
+    }
+    
+    // Update the array to include our new page at the right position
+    this.pages.splice(insertIndex, 0, this.serializePage(newPage));
+    
+    // Set the active page to our new page
+    setTimeout(() => {
+      // Update current page index
+      this.currentPageIndex = insertIndex;
+      
+      // Navigate to the new page
+      this.setActivePage(insertIndex);
+      
+      // Update page indicator and navigation buttons
+      this.updatePageIndicator();
+      this.updateNavigationButtons();
+      
+      // Save state after all updates
+      this.saveState();
+      
+      // Show a notification
+      this.showSaveLoadNotification('New page inserted after current page', 'success');
+    }, 50); // Short timeout to ensure DOM updates
+  }
+
+  /**
    * Delete the current active page
    */
   deleteCurrentPage() {
@@ -1329,10 +1850,14 @@ class PageManager {
           // Decrement indices for pages that came after the deleted one
           page.dataset.pageIndex = (pageIndex - 1).toString();
           
-          // Update the page number in the footer
+          // Update the page number in the footer based on custom start page number
           const pageNumberElement = page.querySelector('.page-number');
           if (pageNumberElement) {
-            pageNumberElement.textContent = pageIndex.toString();
+            // Only update if page is after the current page index
+            if (pageIndex > this.currentPageIndex) {
+              const newPageNumber = (pageIndex - 1 - this.currentPageIndex) + this.startPageNumber;
+              pageNumberElement.textContent = newPageNumber.toString();
+            }
           }
         }
       }
@@ -1370,6 +1895,9 @@ class PageManager {
     
     // Save current page state before jumping
     this.saveCurrentPageState();
+    
+    // Explicitly set manual navigation mode to true
+    this.isManuallyNavigating = true;
     
     // Set the active page
     this.setActivePage(pageIndex);

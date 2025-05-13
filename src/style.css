@@ -57,7 +57,7 @@
     flex-wrap: nowrap;
     align-items: flex-start;
     overflow-x: auto;
-    scroll-behavior: smooth;
+    scroll-behavior: auto; /* Changed from smooth to prevent unwanted animations */
     width: 100%;
     padding: 20px;
     padding-bottom: 100px; /* Add padding at the bottom to prevent pagination controls from blocking content */
@@ -65,6 +65,7 @@
     /* Hide scrollbar but allow scrolling */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
+    scroll-snap-type: x mandatory; /* Add scroll snapping to help pages align properly */
 }
 
 .pages-container::-webkit-scrollbar {
@@ -178,6 +179,7 @@
     overflow: hidden; /* Ensure content stays within bounds */
     transition: transform 0.3s ease, opacity 0.3s ease;
     opacity: 0.7;
+    scroll-snap-align: center; /* Enable scroll snapping to center of each page */
 }
 
 .legacy-sheet.active-page {
@@ -682,21 +684,75 @@ a {
         margin: 0;
         padding: 0;
         background: none;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
     }
     
     .app-container, .left-panel, .action-buttons, .pagination-controls, .delete-page-button {
-        display: none;
+        display: none !important;
+    }
+    
+    .right-panel {
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .pages-container {
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        transform: none !important;
     }
     
     .legacy-sheet {
-        width: 8.5in;
-        height: 11in;
-        margin: 0;
-        padding: 0.75in 0.536in 0.123in 0.451in; /* Match the main padding */
-        box-shadow: none;
-        page-break-after: always;
+        width: 8.5in !important;
+        height: 11in !important;
+        margin: 0 !important;
+        padding: 0.75in 0.536in 0.123in 0.451in !important; /* Match the main padding */
+        box-shadow: none !important;
+        page-break-after: always !important;
         opacity: 1 !important;
         transform: none !important;
+        border: none !important;
+        position: relative !important;
+        background-color: white !important;
+        display: block !important;
+        float: none !important;
+    }
+    
+    .legacy-sheet:not(.active-page) {
+        display: block !important;
+    }
+    
+    .person-entry, .entry-divider, .generation-title, .horizontal-rule, .person-content, 
+    .person-name, .person-number, .marriage-details, .relationship-text,
+    .children-header, .children-list, .child-entry, .child-marker, .footer, .footer-line,
+    .report-name, .page-number {
+        color: inherit !important;
+        break-inside: avoid !important;
+        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+    
+    /* Prevent image scaling issues */
+    img, .person-image {
+        max-width: 100% !important;
+    }
+    
+    /* Force background colors to show */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }
 
@@ -1032,6 +1088,26 @@ a {
     background-color: rgba(240, 240, 240, 0.5);
 }
 
+/* Insert Page After Current Button */
+.insert-after-button {
+    position: relative;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    margin-left: 5px;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.insert-after-button:hover {
+    background-color: #218838;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+}
+
+.insert-after-button:active {
+    transform: scale(0.95);
+}
+
 /* Delete Page Button */
 .delete-page-button {
     position: relative;
@@ -1138,6 +1214,37 @@ a {
 .save-state-button.button-success {
     background-color: #4CAF50; /* Success green */
     animation: save-pulse 1s;
+}
+
+/* Load Document Button */
+.load-btn {
+    position: relative;
+    background-color: #17a2b8; /* Blue color */
+    color: white;
+    border: none;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.load-btn:hover {
+    background-color: #138496; /* Darker blue on hover */
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(19, 132, 150, 0.5);
+}
+
+.load-btn:active {
+    transform: scale(0.95);
+}
+
+.load-btn.button-loading {
+    background-color: #5bc0de; /* Light blue while loading */
+    animation: loading-pulse 1.5s infinite;
+    pointer-events: none; /* Prevent clicking while loading */
+}
+
+@keyframes loading-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.95); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes saving-pulse {
@@ -1333,4 +1440,47 @@ a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+}
+
+/* Add CSS for start page number control */
+.start-page-number-container {
+  display: flex;
+  align-items: center;
+  margin: 0 15px;
+  font-size: 14px;
+}
+
+.start-page-number {
+  width: 50px;
+  height: 24px;
+  text-align: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  margin: 0 5px;
+  font-size: 14px;
+}
+
+.start-page-number::-webkit-inner-spin-button,
+.start-page-number::-webkit-outer-spin-button {
+  opacity: 1;
+}
+
+.start-page-number:focus {
+  outline: none;
+  border-color: #a85733;
+}
+
+.apply-start-page {
+  background-color: #a85733;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.apply-start-page:hover {
+  background-color: #8a4628;
 }
