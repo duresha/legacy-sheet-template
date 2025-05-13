@@ -58,93 +58,19 @@ class PageManager {
         Print Document
       `;
       
-      // Replace with PDF generation function
-      savePdfBtn.onclick = async () => {
+      // Replace with Print functionality
+      savePdfBtn.onclick = () => {
         // First, save the current page state
         this.saveCurrentPageState();
         
-        // Change button text to indicate processing
-        savePdfBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-            <path d="M0 0h24v24H0z" fill="none"/>
-          </svg>
-          Generating PDF...
-        `;
-        savePdfBtn.disabled = true;
-
-        try {
-          // Create a PDF document
-          const pdf = new jsPDF({
-            unit: 'in',
-            format: 'letter',
-            orientation: 'portrait'
-          });
-          
-          // Store original page index
-          const originalPageIndex = this.currentPageIndex;
-          
-          // Get all page elements
-          const allPages = document.querySelectorAll('.legacy-sheet');
-          
-          // Process each page
-          for (let i = 0; i < allPages.length; i++) {
-            // Set current page to ensure proper rendering
-            this.setActivePage(i);
-            
-            // Wait for page to render
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Capture the page as an image
-            const canvas = await html2canvas(allPages[i], {
-              scale: 2, // Higher resolution
-              useCORS: true,
-              logging: false,
-              backgroundColor: '#ffffff'
-            });
-            
-            // Add a new page if not the first page
-            if (i > 0) {
-              pdf.addPage();
-            }
-            
-            // Add the image to the PDF
-            const imgData = canvas.toDataURL('image/jpeg', 1.0);
-            pdf.addImage(imgData, 'JPEG', 0, 0, 8.5, 11); 
-          }
-          
-          // Restore original page
-          this.setActivePage(originalPageIndex);
-          
-          // Save the PDF
-          pdf.save('Genealogy_Document.pdf');
-          
-          // Reset button
-          savePdfBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
-              <path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 14H8v-6h8v6zm2-8H6v-1c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1z"/>
-            </svg>
-            Save as PDF
-          `;
-          savePdfBtn.disabled = false;
-          
-          // Show success notification
-          this.showSaveLoadNotification('PDF successfully generated!', 'success');
-        } catch (error) {
-          console.error('Error generating PDF:', error);
-          
-          // Reset button on error
-          savePdfBtn.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1.2em" height="1.2em" style="margin-right: 10px; vertical-align: middle;">
-              <path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 14H8v-6h8v6zm2-8H6v-1c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v1z"/>
-            </svg>
-            Save as PDF
-          `;
-          savePdfBtn.disabled = false;
-          
-          // Show error notification
-          this.showSaveLoadNotification('Error generating PDF. Please try again.', 'error');
-        }
+        // Show a notification to inform the user
+        this.showSaveLoadNotification('Opening print dialog...', 'info');
+        
+        // Use a small timeout to ensure the notification is visible before print dialog opens
+        setTimeout(() => {
+          // Use the browser's built-in print functionality
+          window.print();
+        }, 100);
       };
     }
     

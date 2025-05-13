@@ -689,7 +689,9 @@ a {
         color-adjust: exact !important;
     }
     
-    .app-container, .left-panel, .action-buttons, .pagination-controls, .delete-page-button {
+    /* Hide UI elements during print */
+    .app-container, .left-panel, .action-buttons, .pagination-controls, .delete-page-button,
+    .insert-after-button, .add-page-button, .save-state-button, .load-btn, .page-jump-form {
         display: none !important;
     }
     
@@ -714,6 +716,7 @@ a {
         transform: none !important;
     }
     
+    /* Ensure proper page formatting */
     .legacy-sheet {
         width: 8.5in !important;
         height: 11in !important;
@@ -721,6 +724,9 @@ a {
         padding: 0.75in 0.536in 0.123in 0.451in !important; /* Match the main padding */
         box-shadow: none !important;
         page-break-after: always !important;
+        page-break-inside: avoid !important;
+        break-after: page !important;
+        break-inside: avoid !important;
         opacity: 1 !important;
         transform: none !important;
         border: none !important;
@@ -730,15 +736,24 @@ a {
         float: none !important;
     }
     
+    /* Make sure all pages display, not just the active one */
     .legacy-sheet:not(.active-page) {
         display: block !important;
+        visibility: visible !important;
     }
     
+    /* Last page should not force a blank page after */
+    .legacy-sheet:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+    
+    /* Content formatting for print */
     .person-entry, .entry-divider, .generation-title, .horizontal-rule, .person-content, 
     .person-name, .person-number, .marriage-details, .relationship-text,
     .children-header, .children-list, .child-entry, .child-marker, .footer, .footer-line,
     .report-name, .page-number {
-        color: inherit !important;
+        color: black !important;
         break-inside: avoid !important;
         print-color-adjust: exact !important;
         -webkit-print-color-adjust: exact !important;
@@ -747,6 +762,8 @@ a {
     /* Prevent image scaling issues */
     img, .person-image {
         max-width: 100% !important;
+        print-color-adjust: exact !important;
+        -webkit-print-color-adjust: exact !important;
     }
     
     /* Force background colors to show */
