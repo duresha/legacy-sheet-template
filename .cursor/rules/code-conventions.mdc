@@ -1,0 +1,64 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Code Conventions
+
+## JavaScript Structure
+
+The main JavaScript in [src/main.js](mdc:src/main.js) follows these conventions:
+
+1. Uses ES modules for imports
+2. Organizes code by functionality:
+   - Class definitions at the top
+   - Utility functions
+   - Event listeners and initialization
+3. Uses modern JavaScript (ES6+) features:
+   - Arrow functions
+   - Template literals
+   - Async/await
+   - Classes
+
+## Class and Function Patterns
+
+The codebase uses these key patterns:
+
+1. **Class-based components** for complex functionality (e.g., `PageManager`)
+2. **Event delegation** for handling UI interactions
+3. **Utility functions** for shared tasks
+4. **Debounced functions** to optimize performance
+5. **Modular functions** each with a single responsibility
+
+## Commenting Style
+
+Code should include:
+
+1. JSDoc style comments for functions and classes
+2. One-line comments for implementation details
+3. Explanatory comments for complex logic
+
+Example:
+```js
+/**
+ * Save the current page state
+ */
+saveCurrentPageState() {
+  // Get the active page element
+  const currentPage = this.pagesContainer.querySelector(`.legacy-sheet.active-page`);
+  if (!currentPage) return;
+  
+  // Serialize and store the page state
+  const pageState = this.serializePage(currentPage);
+  this.pages[this.currentPageIndex] = pageState;
+}
+```
+
+## Guidelines For Code Modifications
+
+1. Follow the existing code style and conventions
+2. Add JSDoc comments for new functions
+3. Add one-liner comments for changes/improvements
+4. Use the existing utility functions rather than creating new ones
+5. Maintain the module structure of the application
+6. Place new CSS in style.css, not in JavaScript

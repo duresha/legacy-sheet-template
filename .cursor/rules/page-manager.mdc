@@ -1,0 +1,37 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# PageManager Component
+
+The PageManager class in [src/main.js](mdc:src/main.js) handles multi-page functionality for the legacy sheet template generator.
+
+## Key Methods
+
+- `constructor()` - Initializes the PageManager with default settings and DOM elements
+- `initEventListeners()` - Sets up event listeners for page navigation, addition, and deletion
+- `addNewPage()` - Adds a blank new page to the document
+- `insertPageAfterCurrent()` - Inserts a new page after the currently active page
+- `deleteCurrentPage()` - Removes the current page from the document
+- `setActivePage(pageIndex, preventScroll)` - Sets the active page and handles scrolling behavior
+- `navigateToPrevPage()` - Navigates to the previous page
+- `navigateToNextPage()` - Navigates to the next page
+- `saveCurrentPageState()` - Saves the state of the current page
+- `saveState(saveType)` - Saves the entire application state
+- `loadState()` - Loads a previously saved state
+
+## Page Navigation System
+
+The page navigation system includes:
+- Page indicators showing current and total pages
+- Jump-to-page functionality
+- Custom page numbering feature
+- Previous/next navigation buttons
+
+## Guidelines For Modifications
+
+1. Always save state after making changes to pages
+2. Update UI indicators when page counts change
+3. Maintain the existing event flow for user actions
+4. Preserve page structure and content when manipulating pages

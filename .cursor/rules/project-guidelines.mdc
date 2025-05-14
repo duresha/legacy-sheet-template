@@ -1,0 +1,25 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Legacy Sheet Template Project Guidelines
+
+These rules must be followed at all times when making changes to this project:
+
+1. Just do what you're asked, nothing more, nothing less.
+2. Do not edit/remove any of the existing functionality/features/UI elements unless asked.
+3. Follow the design that we have throughout the project.
+4. It is important for us to not to break the project by introducing changes that mess up the whole project.
+5. Do not mess up the current state of project.
+6. When writing CSS for element -- the css code for that element should exist in the style.css file and not in the main.js file.
+7. Add one liner comments over the changes/improvements you add on the in existing codebase.
+
+## Project Structure
+
+The main project structure:
+- [src/main.js](mdc:src/main.js) - Core application logic
+- [data/](mdc:data) - Contains data files used by the application
+- [public/](mdc:public) - Static assets for the application
+- [scripts/](mdc:scripts) - Utility scripts
+- [vite.config.js](mdc:vite.config.js) - Build configuration

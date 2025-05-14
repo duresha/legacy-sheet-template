@@ -1,0 +1,55 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# UI Components
+
+## Main Layout Components
+
+The application is divided into two main panels:
+
+1. **Left Panel** ([src/index.html](mdc:src/index.html))
+   - Image upload area
+   - Extracted data display
+   - Control buttons (Add Page, Save PDF)
+
+2. **Right Panel** ([src/index.html](mdc:src/index.html))
+   - Page display area
+   - Legacy sheet template
+   - Navigation controls
+
+## Legacy Sheet Structure
+
+Each legacy sheet has a specific structure:
+
+1. **Generation Title** - Section header, e.g., "Sixth Generation"
+2. **Person Entries** - Individual biographical entries with:
+   - Person number
+   - Person name and relationship text
+   - Optional person image
+   - Marriage details
+   - Children list with markers (i, ii, iii, etc.)
+3. **Dividers** - Horizontal rules separating entries
+4. **Footer** - Contains report name and page number
+
+## Navigation Controls
+
+The UI includes several navigation and control elements:
+
+- Pagination controls (Previous/Next buttons)
+- Page indicator showing current/total pages
+- Jump-to-page input
+- Custom page numbering input
+- Add/Delete page buttons
+- Save state button
+- Reset template button
+
+## Guidelines For UI Modifications
+
+1. Maintain the existing two-panel layout structure
+2. Follow the legacy sheet format for content and styling
+3. Keep navigation controls visually consistent
+4. Preserve accessibility features
+5. Ensure responsive behavior across different screen sizes
+6. Test print functionality after UI changes

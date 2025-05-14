@@ -1,0 +1,41 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Styling Guidelines
+
+## CSS Organization
+
+All styling for the application is contained in [src/style.css](mdc:src/style.css). This file includes:
+
+- Font imports and definitions
+- Layout structure (panels, containers)
+- Component-specific styling
+- Responsive design rules
+- Print media queries
+
+## Important Style Rules
+
+1. **All CSS must be added to style.css**, not inline or in main.js
+2. Follow the existing naming conventions:
+   - Use kebab-case for class names (e.g., `person-entry`, `generation-title`)
+   - Component containers use `-container` suffix
+   - Interactive elements have their state in the class name (e.g., `button-success`)
+3. Maintain the existing color scheme:
+   - Primary green: `#2f3d22`, `#3a4d2a`
+   - Background: `#f5f5f5`, `#f0f0f0` 
+   - Text colors: `#333`, `#444`
+4. Follow existing responsive breakpoints:
+   - Desktop: Default
+   - Medium: `@media screen and (max-width: 1200px)`
+   - Small: `@media screen and (max-width: 600px)`
+   - Print: `@media print`
+
+## Print Styling
+
+The print styling is critical for PDF generation. When adding new elements, ensure they are properly styled for print by:
+
+1. Making them visible in print mode if they should appear in the PDF
+2. Adding them to the print exclusion list if they should not appear in the PDF
+3. Testing print preview to verify correct appearance
