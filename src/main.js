@@ -66,6 +66,23 @@ class PageManager {
         // Show a notification to inform the user
         this.showSaveLoadNotification('Opening print dialog...', 'info');
         
+        // Ensure hyperlinks are properly initialized before printing
+        if (typeof attachAllHyperlinkHandlers === 'function') {
+          attachAllHyperlinkHandlers();
+        }
+        
+        // Prepare document for printing by ensuring all hyperlinks are properly styled
+        const allLinks = document.querySelectorAll('.page-link');
+        allLinks.forEach(link => {
+          // Make sure all hyperlinks have href for PDF compatibility
+          if (!link.href || !link.href.includes('#page=')) {
+            const targetPage = link.getAttribute('data-target-page');
+            if (targetPage) {
+              link.href = '#page=' + targetPage;
+            }
+          }
+        });
+        
         // Use a small timeout to ensure the notification is visible before print dialog opens
         setTimeout(() => {
           // Use the browser's built-in print functionality
@@ -1128,6 +1145,11 @@ class PageManager {
         
         // Set data applied flag
         this.isDataApplied = state.isDataApplied || false;
+        
+        // Reinitialize hyperlink handlers for loaded content
+        if (typeof attachAllHyperlinkHandlers === 'function') {
+          setTimeout(attachAllHyperlinkHandlers, 200);
+        }
         
         // Restore startPageNumber if it exists in the state
         if (state.startPageNumber && !isNaN(state.startPageNumber)) {
@@ -4586,6 +4608,29 @@ document.addEventListener('DOMContentLoaded', function() {
       insertChildNumberAtCursor();
       console.log('Child number insertion triggered with Ctrl+Q');
     }
+    
+    // Check if Ctrl+Space is pressed (for hyperlink functionality)
+    if (e.ctrlKey && e.key === ' ' && isEditableParagraph) {
+      e.preventDefault(); // Prevent default browser action
+      
+      // Get current selection
+      const selection = window.getSelection();
+      
+      // If there's a valid selection range
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        
+        // Only proceed if text is selected
+        if (!range.collapsed) {
+          // Show hyperlink popup
+          showHyperlinkPopup(selection, range);
+          console.log('Hyperlink popup shown with Ctrl+Space');
+        } else {
+          // Show notification if no text is selected
+          showNotification('Select text first to create a hyperlink', 'warning');
+        }
+      }
+    }
   });
 
   // Add CSS for paragraph resizing functionality
@@ -5584,5 +5629,169 @@ function setupGeneralSamplingReplacement() {
 
 // Set up General to Sampling replacement shortcut
 setupGeneralSamplingReplacement();
+
+  /**
+   * Shows the hyperlink popup dialog for the current text selection
+   * @param {Selection} selection - The current text selection
+   * @param {Range} range - The selected range
+   */
+  function showHyperlinkPopup(selection, range) {
+    // Create popup container
+    const popup = document.createElement('div');
+    popup.className = 'hyperlink-popup';
+    
+    // Create popup content
+    popup.innerHTML = `
+      <div class="hyperlink-popup-title">Create Page Link</div>
+      <div class="hyperlink-input-container">
+        <label class="hyperlink-input-label">Target page number:</label>
+        <input type="number" class="hyperlink-page-input" min="1" value="1">
+      </div>
+      <div class="hyperlink-popup-buttons">
+        <button class="hyperlink-popup-button hyperlink-cancel-button">Cancel</button>
+        <button class="hyperlink-popup-button hyperlink-confirm-button">Confirm</button>
+      </div>
+    `;
+    
+    // Position the popup near the selection
+    const rect = range.getBoundingClientRect();
+    popup.style.top = `${rect.bottom + window.scrollY + 10}px`;
+    popup.style.left = `${rect.left + window.scrollX}px`;
+    
+    // Add to document
+    document.body.appendChild(popup);
+    
+    // Focus the input
+    const pageInput = popup.querySelector('.hyperlink-page-input');
+    pageInput.focus();
+    
+    // Close popup if clicked outside
+    document.addEventListener('click', function closePopup(e) {
+      if (!popup.contains(e.target)) {
+        popup.remove();
+        document.removeEventListener('click', closePopup);
+      }
+    });
+    
+    // Handle cancel button
+    const cancelButton = popup.querySelector('.hyperlink-cancel-button');
+    cancelButton.addEventListener('click', function() {
+      popup.remove();
+    });
+    
+    // Handle confirm button
+    const confirmButton = popup.querySelector('.hyperlink-confirm-button');
+    confirmButton.addEventListener('click', function() {
+      const targetPage = parseInt(pageInput.value);
+      if (!isNaN(targetPage) && targetPage >= 1) {
+        createPageLink(range, targetPage);
+        popup.remove();
+        
+        // Show confirmation notification
+        showNotification(`Hyperlink to page ${targetPage} created`, 'success');
+        
+        // Save state after creating the hyperlink
+        if (window.pageManager) {
+          window.pageManager.saveCurrentPageState();
+          window.pageManager.saveState();
+        }
+      } else {
+        // Show error notification
+        showNotification('Please enter a valid page number', 'error');
+      }
+    });
+    
+    // Also handle Enter key
+    pageInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirmButton.click();
+      }
+    });
+  }
   
+  /**
+   * Creates a page link from the selected text
+   * @param {Range} range - The range of selected text
+   * @param {number} targetPage - The target page number
+   */
+  function createPageLink(range, targetPage) {
+    // Create an actual anchor element instead of span for better PDF support
+    const link = document.createElement('a');
+    link.className = 'page-link';
+    link.setAttribute('data-target-page', targetPage);
+    // Set href attribute for better PDF compatibility
+    link.href = '#page=' + targetPage;
+    
+    // Extract the selected content
+    const fragment = range.extractContents();
+    link.appendChild(fragment);
+    
+    // Insert the link at the selection
+    range.insertNode(link);
+    
+    // Clear the selection
+    window.getSelection().removeAllRanges();
+    
+    // Add click event to the newly created link
+    attachHyperlinkClickHandler(link);
+  }
+  
+  /**
+   * Attaches click handler to page links for navigation
+   * @param {HTMLElement} link - The link element
+   */
+  function attachHyperlinkClickHandler(link) {
+    link.addEventListener('click', function(e) {
+      // Only prevent default in the app, not in PDF
+      if (window.pageManager) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Get target page
+        const targetPage = parseInt(this.getAttribute('data-target-page'));
+        
+        // Jump to the page if valid
+        if (!isNaN(targetPage) && targetPage >= 1) {
+          window.pageManager.jumpToPage(targetPage);
+        }
+      }
+    });
+  }
+  
+  // Function to attach click handlers to all hyperlinks in the document
+  function attachAllHyperlinkHandlers() {
+    const pageLinks = document.querySelectorAll('.page-link');
+    pageLinks.forEach(link => {
+      attachHyperlinkClickHandler(link);
+    });
+  }
+  
+  // Attach handlers to existing hyperlinks
+  setTimeout(attachAllHyperlinkHandlers, 1000);
+  
+  // Add mutation observer to handle dynamically added hyperlinks
+  const hyperlinkObserver = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      // Check for added nodes that might contain hyperlinks
+      if (mutation.addedNodes.length) {
+        mutation.addedNodes.forEach(node => {
+          // If it's an element node
+          if (node.nodeType === 1) {
+            // Look for .page-link elements
+            const links = node.querySelectorAll ? node.querySelectorAll('.page-link') : [];
+            links.forEach(link => {
+              attachHyperlinkClickHandler(link);
+            });
+          }
+        });
+      }
+    });
+  });
+  
+  // Start observing the document for hyperlinks
+  hyperlinkObserver.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
 });
